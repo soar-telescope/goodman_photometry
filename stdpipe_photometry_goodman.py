@@ -1,19 +1,10 @@
 # Generic imports
 import matplotlib.pyplot as plt
 import numpy as np
-import glob, datetime, os
-
-from astropy import wcs
-from astropy.wcs import WCS
+import datetime
 from astropy.io import fits as fits
-
-from astropy.coordinates import SkyCoord
-from astropy import units as u
-from astropy.time import Time
-
-import astroscrappy
-
-import pandas as pd
+# import local tasks
+import goodman_astro as gtools
 
 # Disable some annoying warnings from astropy
 import warnings
@@ -22,216 +13,308 @@ from astropy.io.fits.verify import VerifyWarning
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
 
-# Load (most of) our sub-modules
-from stdpipe import astrometry, photometry, catalogs, cutouts, templates, subtraction, plots, psf, pipeline, utils
-
 # Adjust default parameters for imshow
 plt.rc('image', origin='lower', cmap='Blues_r')
-
-
-def mask_fov(image, binning):
-    """
-        Mask out the edges of the FOV of the Goodman images
-    """
-    # define center of the FOV for binning 1, 2, and 3 
-    if binning == 1:
-        center_x, center_y, radius = 1520, 1570, 1550
-    if binning == 2:
-        center_x, center_y, radius = 770, 800, 775
-    if binning == 3:
-        center_x, center_y, radius = 510, 540, 515
-    else:
-        center_x, center_y, radius = image.shape[0]/2., image.shape[1]/2., image.shape[0]/2.
-
-    # create a grid of pixel coordinates
-    x, y = np.meshgrid( np.arange(image.shape[1]), np.arange(image.shape[0]) )
-
-    # calculate the distance of each pixel from the center of the FOV
-    distance = np.sqrt( (x - center_x)**2 + (y - center_y)**2 )
-    mask_fov = distance > radius
-    return mask_fov
-
 
 ###########################################################
 filename = './0277_wd1_r_5_wcs.fits'
 filename = './0274_wd1_r_025_wcs.fits'
 filename = './0280_wd1_r_60_wcs.fits'
+filename = './processed/cfzt_0277_wd1_r_5_wcs.fits'
+filename = './new_tests/0061_N24A-383097.fits'
+#filename = './new_tests/0177_EP240305a_z.fits'
+#filename = './new_tests/0277_wd1_r_5.fits'
+#filename = './new_tests/cfzst_0456_VFTS682_r.fits'
+#filename = './new_tests/cfzt_0277_wd1_r_5.fits'
+#filename = './new_tests/0175_EP240305a_r.fits'
+#filename = './new_tests/0178_EP240305a_g.fits'
+#filename = './new_tests/0280_wd1_r_60.fits'
+#filename = './new_tests/cfzst_0463_VFTS682_ii.fits'
+#filename = './new_tests/cfzt_0280_wd1_r_60.fits'
+#filename = './new_tests/0176_EP240305a_i.fits'
+#filename = './new_tests/0274_wd1_r_025.fits'
+#filename = './new_tests/cfzst_0450_VFTS682_g.fits'
+filename = './new_tests/cfzt_0274_wd1_r_025.fits'
 
+# add suffix for astrometric calibrated frames
+filename = filename.replace(".fits","_wcs.fits")
+
+# save intermediary fits files and plots
+print_messages = True
+save_intermediary_files = False
+save_plots = True
+
+color_term = False # set as True for using color term for photometric calibration
+
+# set up Vizier catalog, filter to be used and magnitude limit.
+cat_name = 'gaiadr2'  # set up the catalog name
+cat_magthresh = 17    # use only sources brighter than this limit for deriving astrometric solution
+# parameters for photometric calibration 
+ecmag_thresh = 0.1    # use only magnitude measurements with error smaller than this limit
+cmag_limits = [8,22]  # use only magnitude measurements within the provided range for catalog stars (avoid weird sources)
+
+## TODO: save 'm' dictionary as a table containing all the photometric results - done!
+## TODO: generate a log file - done
+## TODO: understand the difference betweem empirical and model ZP
+
+# START THE CODE ----------
+
+# set start time of the code
+start = datetime.datetime.now()
+
+# set up log file
+logfile = filename.replace(".fits","_photometry_log.txt")
+gtools.log_message(logfile,"Start the log", init=True, print_time=True)
+gtools.log_message(logfile,"File: {}".format(filename), print_time=True)
+
+##########################################################
+#
+# 1) load the fits file and retrieve header information
+#
+
+# reads the FITS file
 image  = fits.getdata(filename).astype(np.double)
 header = fits.getheader(filename)
-wcs = WCS(header)
+
+# check if WCS is present
+wcs = gtools.check_wcs(header)
+
 
 # get center position and pixscale
-center_ra, center_dec, center_sr = astrometry.get_frame_center(wcs=wcs, width=image.shape[1], height=image.shape[0])
-pixscale = astrometry.get_pixscale(wcs=wcs)
+center_ra, center_dec, fov_radius = gtools.get_frame_center(wcs=wcs, width=image.shape[1], height=image.shape[0])      # STDpipe
+pixscale = gtools.get_pixscale(wcs=wcs)
 
-print('Frame center is %.2f %.2f radius %.2f arcmin, %.3f arcsec/pixel' 
-      % (center_ra, center_dec, center_sr * 60., pixscale * 3600.))
-print('')
+# print information on screen
+if print_messages:
+    print('Frame center is %.2f %.2f radius %.2f arcmin, %.3f arcsec/pixel' 
+          % (center_ra, center_dec, fov_radius * 60., pixscale * 3600.))
+    print('')
+
+# log 
+gtools.log_message(logfile,"RA={:.5f} Dec={:.5f}".format(center_ra, center_dec), print_time=True)
+
+# gather required information from the header
+fname, binning, time, gain, rdnoise, satur_thresh, exptime = gtools.get_info(header)
+
+# log 
+gtools.log_message(logfile,"filter={} exptime={:.2f} binning={}x{} pixscale={:.3f}".format(fname, exptime, binning, binning, 3600*pixscale), print_time=True)
 
 
-# get keywords from header
-fname = header.get('FILTER')
-binning = np.array([int(b) for b in header['CCDSUM'].split(' ')])[0]
-time  = utils.get_obs_time(header, verbose=False)
-gain = header.get('GAIN')
-exptime = header.get('EXPTIME')
-# TODO define Saturation threshould based on GAIN from header (if gain==1.48, saturation == 50000,...)
-saturation = 50000
 
 # we need counts/sec for estimating the photometric ZP
 image /= exptime
 
-print('Processing %s: filter %s gain %.2f at %s' 
-      % (filename, fname, gain, time))
+# print information on screen
+if print_messages:
+    print('Processing %s: filter %s gain %.2f at %s' 
+          % (filename, fname, gain, time))
 
-# Create mask of bad pixels
-mask = image > saturation # Rough saturation level
+# plot image
+file_out = filename.replace(".fits","_phot_wcs.png") if save_plots is True else None
+gtools.imgshow(image, wcs=wcs, title=filename.replace(".fits",""), output=file_out, qq=(0.01,0.99), cmap='Blues_r')
+if save_plots: gtools.log_message(logfile,"Image - Astrometric calibrated, ready for photometry: {}".format(file_out), print_time=True)
 
-# Cosmics
-cmask, cimage = astroscrappy.detect_cosmics(image, mask, verbose=False)
-mask |= cmask
 
-# mask out edge of the fov
-mask |= mask_fov(image, binning)
 
-print('Done masking cosmics')
+##########################################################
+#
+# 2) create bad pixel mask (BPM)
+#    masks the outside of the FOV and identify bad pixels.
+#    should work for raw and processed data
+#    (even if the data is already processed by Goodman Live Pipeline, we need to mask the region outside the FOV)
+#
+mask = gtools.bpm_mask(image, satur_thresh, binning)
+if print_messages:
+    print('Done masking cosmics')
 
-plt.figure()
-plt.subplot(projection=wcs)
-plots.imshow(image, [0.5, 99.75], cmap='Blues_r')
-plt.title(os.path.split(filename)[1])
-plt.tight_layout()
-plt.savefig(filename.replace(".fits","_phot_wcs.png"))
+##########################################################
+#
+# 3) Source detection with SExtractor (now goes as deep as 1-sigma)
+#
+# Define extraction aperture: assuming a mean seeing of 1.0 arcseconds and an aperture based on a Gaussian Full Width at Tenth Maximum (FWTM).
+seeing    = 1.0 # arcseconds (fixed)
+fwtm2fwhm = 1.82
+sextractor_aperture = np.round(fwtm2fwhm * seeing / ( pixscale * 3600. ) )
 
-###########################
-# Extract objects (now go as deeper as 1-sigma threshould)
-obj = photometry.get_objects_sextractor(image, mask=mask, gain=gain, r0=2, aper=5.0, thresh=1.0, wcs=wcs)
-print(len(obj), 'objects found')
-img = image * ~mask
-obj = photometry.get_objects_sextractor(img, mask=None, gain=gain, r0=2, aper=5.0, thresh=1.0, wcs=wcs)
-print(len(obj), 'objects found (masked)')
+# log 
+gtools.log_message(logfile,"SExtractor aperture radius={:.1f} pixels".format(sextractor_aperture), print_time=True)
 
-## TODO: the code above is not properly using the mask information. need to understand how to implement it better.
+# run SExtractor to detect the sources
+obj = gtools.get_objects_sextractor(image, mask=mask, gain=gain, r0=2, aper=sextractor_aperture, thresh=1.0, wcs=wcs)
 
-plt.figure()
-plt.subplot(projection=wcs)
-plots.imshow(image, interpolation='nearest')
-plt.plot(obj['x'], obj['y'], 'r.', ms=2)
-plt.title('Detected objects')
-plt.tight_layout()
-plt.savefig(filename.replace(".fits","_phot_detections.png"))
+# print information on screen
+if print_messages:
+    print(len(obj), 'objects found')
+
+# log 
+gtools.log_message(logfile,"SExtractor detections (1-sigma threshold): {}".format(len(obj)), print_time=True)
+
+# write number of detections per SExtractor flag.
+gtools.log_message(logfile,"SExtractor detections (per flag)", print_time=True)
+sex_flags = np.unique(obj['flags'])
+for sflag in sex_flags:
+    gtools.log_message(logfile,"flag={} - {}".format(sflag,np.sum(obj['flags']==sflag)), print_time=True)
+    if print_messages:
+        print("flag={} - {}".format(sflag,np.sum(obj['flags']==sflag)))
+
+# plot detections
+file_out = filename.replace(".fits","_phot_detections.png") if save_plots is True else None
+gtools.imgshow(image, wcs=wcs, px=obj['x'], py=obj['y'], title='Detected objects', output=file_out, qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)
+if save_plots: gtools.log_message(logfile,"Image - SExtractor detections: {}".format(file_out), print_time=True)
 
 ##############################
-# Data Quality output
 #
-dq_flag = obj['flags'] == 0
-dq_obj = obj[dq_flag]
-# get FWHM from detections (using median and median absolute deviation as error)
-fwhm = np.median(dq_obj['fwhm'])
-fwhm_error = np.median(np.absolute(dq_obj['fwhm'] - np.median(dq_obj['fwhm'])))
-fwhm_arcsec = fwhm * pixscale * 3600.0
-fwhm_error_arcsec = fwhm * pixscale * 3600.0
-# estimate median ellipticity of the sources (ell = 1 - b/a)
-med_a = np.median(dq_obj['a']) # major axis
-med_b = np.median(dq_obj['b']) # minor axis
-med_a_error = np.median(np.absolute(dq_obj['a'] - np.median(dq_obj['a'])))
-med_b_error = np.median(np.absolute(dq_obj['b'] - np.median(dq_obj['b'])))
-ell = 1 - med_b / med_a
-ell_error = ell * np.sqrt( (med_a_error/med_a)**2 + (med_b_error/med_b)**2 )
-print('------------------------')
-print('  Data Quality outputs')
-print('           Nobj for DQ: {}/{}'.format(len(dq_obj),len(obj)))
-print('           Median FWHM: {:.2f}+/-{:.2f} pixels'.format(fwhm, fwhm_error))
-print('           Median FWHM: {:.2f}+/-{:.2f} arcsec'.format(fwhm_arcsec,fwhm_error_arcsec))
-print('    Median ellipticity: {:.3f}+/-{:.3f}'.format(ell, ell_error))
-print('------------------------')
-print('')
+# 4) Data Quality results
+#
+# use FLAG=0 objects to derive DQ results
+dq_obj  = obj[obj['flags'] == 0]
 
-################################
-# Prepare for photometry
+# plot detections
+file_out = filename.replace(".fits","_phot_detections_flag0.png") if save_plots is True else None
+gtools.imgshow(image, wcs=None, px=dq_obj['x'], py=dq_obj['y'], title='Detected objects (FLAG=0)', output=file_out, qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)
+if save_plots: gtools.log_message(logfile,"Image - SExtractor detections (flag=0): {}".format(file_out), print_time=True)
 
-# set up Vizier catalog, filter to be used and magnitude limit.
-cat_name = 'gaiadr2'
-cat_filter = 'rmag'
-cat_magthresh = 18
+# get median FWHM and ellipcity of the point sources
+fwhm, fwhm_error, ell, ell_error  = gtools.dq_results(dq_obj)
 
-print('Performing astrometry with SCAMP using',cat_name)
+# print results on screen
+if print_messages:
+    print('------------------------')
+    print('  Data Quality outputs')
+    print('           Nobj for DQ: {}/{}'.format(len(dq_obj),len(obj)))
+    print('           Median FWHM: {:.2f}+/-{:.2f} pixels'.format(fwhm, fwhm_error))
+    print('           Median FWHM: {:.2f}+/-{:.2f} arcsec'.format(fwhm * pixscale *3600.,fwhm_error * pixscale *3600.))
+    print('    Median ellipticity: {:.3f}+/-{:.3f}'.format(ell, ell_error))
+    print('------------------------')
+    print('')
 
-cat = catalogs.get_cat_vizier(center_ra, center_dec, center_sr, cat_name, filters={'rmag':'<18'})
-print('   ',len(cat), 'catalogue stars')
-## filter is not working on the code above
-cat = cat[cat[cat_filter] <= cat_magthresh]
-print('    {} filtered catalogue stars [{} <= {}]'.format(len(cat),cat_filter,cat_magthresh))
-print('')
+gtools.log_message(logfile,"Data Quality outputs", print_time=True)
+gtools.log_message(logfile,"Nobj for DQ: {}/{}".format(len(dq_obj),len(obj)), print_time=True)
+gtools.log_message(logfile,"Median FWHM: {:.2f}+/-{:.2f} pixels".format(fwhm, fwhm_error), print_time=True)
+gtools.log_message(logfile,"Median FWHM: {:.2f}+/-{:.2f} arcsec".format(fwhm * pixscale *3600.,fwhm_error * pixscale *3600.), print_time=True)
+gtools.log_message(logfile,"Median ellipticity: {:.3f}+/-{:.3f}".format(ell, ell_error), print_time=True)
 
-cat_col_mag = 'rmag'
-cat_color_mag1 = 'gmag'
-cat_color_mag2 = 'rmag'
+##############################
+#
+# 5) Run photometry
+#
+# retrieve the filters to be used on the external catalog based on the Goodman filter information
+cat_filter, phot_mag, phot_color_mag1, phot_color_mag2 = gtools.filter_sets(fname)
+
+if print_messages:
+    print("Calibrating Goodman HST {} filter observations using {} magnitudes from {} converted to {} filter.".format(fname,cat_filter,cat_name,phot_mag))
+
+# Query Vizier
+cat = gtools.get_cat_vizier(center_ra, center_dec, fov_radius, cat_name, filters={cat_filter:f'<{cat_magthresh}'})     # gtools
+if print_messages:
+    print('   {} catalogue stars on {} filter'.format(len(cat),cat_filter))
+
+gtools.log_message(logfile,"Photometric calibration using {} magnitudes from {} converted to {} filter".format(cat_filter,cat_name,phot_mag), print_time=True)
+if color_term:
+    gtools.log_message(logfile,"using photometric color term based on {}-{} color index".format(phot_color_mag1, phot_color_mag2), print_time=True)
+
+# photometric filters for deriving the calibration (should be as close as possible as the filter in use. available filters from GaiaDR2 are:
+# "Gmag,BPmag,RPmag,Bmag,Vmag,Rmag,Imag,gmag,rmag,g_SDSS,r_SDSS,i_SDSS"
+
+# Use color term for photometric calibration or not
+phot_color_mag1 = phot_color_mag1 if color_term else None
+phot_color_mag2 = phot_color_mag1 if color_term else None
 
 # Photometric calibration
-m = pipeline.calibrate_photometry(obj, cat, pixscale=pixscale, cat_col_mag=cat_col_mag, cat_col_mag1=cat_color_mag1, cat_col_mag2=cat_color_mag2, order=0, verbose=True)
+m = gtools.calibrate_photometry(obj, cat, pixscale=pixscale, ecmag_thresh = ecmag_thresh, cmag_limits = cmag_limits,  
+                                cat_col_mag=phot_mag, cat_col_mag1=phot_color_mag1, cat_col_mag2=phot_color_mag2, order=0, verbose=True)
 
-#f = open('./phot.txt','w')
-#f.write(str(m))
-#f.close()
+# check if there are photometric results to proceed (in case of no results, the WCS might be wrong)
+gtools.check_phot(m)
+
+# convert the dict 'm' to an astropy table
+m_table = gtools.phot_table(m)
+m_table.write(filename.replace(".fits","_phot_table.html"), format='html', overwrite=True)
+gtools.log_message(logfile,"Table of sources used for photometric calibration is stored as {}".format(filename.replace(".fits","_phot_table.html")), print_time=True)
+
+# define a map in a 60"x60" binning.
+plot_bins = np.round( 2. * ( fov_radius * 3600. ) / 60.0 )
 
 plt.figure()
-plots.plot_photometric_match(m, mode='dist', bins=6)
+gtools.plot_photometric_match(m, mode='dist', bins=plot_bins)     # gtools
 plt.tight_layout()
-plt.savefig(filename.replace(".fits","_phot_photmatch.png"))
+if save_plots is True:
+    plt.savefig(filename.replace(".fits","_phot_photmatch.png"))
 
 plt.figure()
 plt.subplot(211)
-plots.plot_photometric_match(m)
-#plt.ylim(-1., 1.)
+gtools.plot_photometric_match(m)     # gtools
 
 plt.subplot(212)
-plots.plot_photometric_match(m, mode='color')
-#plt.ylim(-1., 1.)
-#plt.xlim(-1., 1.)
+gtools.plot_photometric_match(m, mode='color')     # gtools
 plt.tight_layout()
-plt.savefig(filename.replace(".fits","_phot_photmatch2.png"))
+if save_plots is True:
+    plt.savefig(filename.replace(".fits","_phot_photmatch2.png"))
 
 # Zero point (difference between catalogue and instrumental magnitudes for every star) map
 plt.figure()
-plots.plot_photometric_match(
-    m, 
-    mode='zero', 
-    bins=6, 
-    # Whether to show positions of the stars
-    show_dots=True, 
-    color='red', 
-    aspect='equal'
-)
+gtools.plot_photometric_match(m, 
+                                mode='zero', 
+                                bins=plot_bins, 
+                                # Whether to show positions of the stars
+                                show_dots=True, 
+                                color='red', 
+                                aspect='equal')
 plt.title('Zero point')
 plt.tight_layout()
-plt.savefig(filename.replace(".fits","_phot_zp.png"))
+if save_plots is True:
+    plt.savefig(filename.replace(".fits","_phot_zp.png"))
+
+# get photometric zero point estimate
+med_zp, med_ezp = gtools.phot_zeropoint(m)
+if print_messages:
+    print("Median empirical ZP: {:.3f}+/-{:.3f}".format(med_zp, med_ezp))
+    #print("    Median model ZP: {:.3f}+/-{:.3f}".format(med_mzp, med_emzp))
 
 
-med_zp = np.nanmedian(m['zero'])
-med_ezp = np.nanmedian(m['zero_err'])
-med_mzp = np.nanmedian(m['zero_model'])
-med_emzp = np.nanmedian(m['zero_model_err'])
+gtools.log_message(logfile,"Median empirical ZP: {:.3f}+/-{:.3f}".format(med_zp, med_ezp), print_time=True)
 
-print("Median empirical ZP: {:.3f}+/-{:.3f}".format(med_zp, med_ezp))
-print("    Median model ZP: {:.3f}+/-{:.3f}".format(med_mzp, med_emzp))
+# Update the header information
+header_out = header
+# results from Data Quality measurements (Sextractor)
+header_out.append(('SNDET',len(obj),                           'Number of SEXtractor sources'),                                                 end=True)
+header_out.append(('SNDET-DQ',len(dq_obj),                     'Number of SEXtractor sources associated with FLAG=0 (used for DQ)'),            end=True)
+header_out.append(('SFWHM',float(fwhm),                        'Median FWHM of SEXtractor sources associated with FLAG=0 (in pixels)'),         end=True)
+header_out.append(('SFWHMUNC',float(fwhm_error),               'Uncertainty on FWHM of SEXtractor sources associated with FLAG=0 (in pixels)'), end=True) 
+header_out.append(('SELL',float(ell),                          'Ellipticity of SEXtractor sources associated with FLAG=0'),                     end=True)
+header_out.append(('SELLUNC',float(ell_error),                 'Uncertainty on ellipticity of SEXtractor sources associated with FLAG=0'),      end=True) 
+header_out.append(('SSEEING',float(fwhm * pixscale *3600.),    'Median FWHM of SEXtractor sources associated with FLAG=0 (in arcsec)'),         end=True)
+header_out.append(('SSEEINGU',float(fwhm_error*pixscale*3600.),'Uncertainty on FWHM of SEXtractor sources associated with FLAG=0 (in arcsec)'), end=True) 
+# photometric calibration setup
+header_out.append(('PHOTCAT',cat_name,                         'Catalog name used for photometric calibration'),                                end=True)
+header_out.append(('PHOTCFIL',cat_filter,                      'Filter name used for retrieving the catalog list for photometric calibration'), end=True)
+header_out.append(('PHOTCMAG',float(cat_magthresh),            'Magnitude threshold for PHOTCFIL used for photometric calibration'),            end=True)
+header_out.append(('PHOTCTHR',float(ecmag_thresh),             'Use catalog sources with magnitude errors smaller than this threshold for photometric calibration'), end=True)
+header_out.append(('PHOTCLMB',str(cmag_limits),                'Magnitude range of catalog sources used for photometric calibration'),          end=True)
+header_out.append(('PHOTFILT',phot_mag,                        'Filter used for photometric calibration'),                                      end=True)
+header_out.append(('PHOTCOL1',phot_color_mag1,                 'Filter #1 used for color correction on the photometric calibration'),           end=True)
+header_out.append(('PHOTCOL2',phot_color_mag2,                 'Filter #2 used for color correction on the photometric calibration'),           end=True)
+# results from photometric calibration
+header_out.append(('MAGZPT',float(med_zp),                     'Filter #2 used for color correction on the photometric calibration'),           end=True)
+header_out.append(('MAGZPTER',float(med_ezp),                  'Filter #2 used for color correction on the photometric calibration'),           end=True)
 
-## TODO understand the difference betweem empirical and model ZP
+##############################
+#
+# 6) Save FITS file with correct astrometric solution and photometric information
+#   
+hdu  = fits.PrimaryHDU(data=image, header=header_out)
+hdul = fits.HDUList([hdu])
+hdul.writeto(filename.replace(".fits","_phot.fits"),overwrite=True)
 
+gtools.log_message(logfile,'FITS file saved as {}'.format(filename.replace(".fits","_phot.fits")), print_time=True)
+
+# set start of the code
+end = datetime.datetime.now()
+gtools.log_message(logfile,'Photometric calibration executed in {:.2f} seconds'.format((end-start).total_seconds()), print_time=True)
+
+#
+# Exit
+#
 print("")
-
-
-## t=0.25sec
-## Median empirical ZP: 25.851+/-0.036
-##  Median model ZP: 25.814+/-0.003
-## t=5sec
-## Median empirical ZP: 26.078+/-0.014
-##  Median model ZP: 26.068+/-0.005
-## t=60sec
-## Median empirical ZP: 26.073+/-0.013
-##  Median model ZP: 26.052+/-0.006
-
-##
-
-print("DONE")
+print("Photometric calibration was applied.")
+print("")

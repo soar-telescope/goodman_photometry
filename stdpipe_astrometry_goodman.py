@@ -1,19 +1,10 @@
 # Generic imports
 import matplotlib.pyplot as plt
 import numpy as np
-import glob, datetime, os
-
-from astropy import wcs
-from astropy.wcs import WCS
+import datetime
 from astropy.io import fits as fits
-
-from astropy.coordinates import SkyCoord
-from astropy import units as u
-from astropy.time import Time
-
-import astroscrappy
-
-import pandas as pd
+# import local tasks
+import goodman_astro as gtools
 
 # Disable some annoying warnings from astropy
 import warnings
@@ -22,258 +13,295 @@ from astropy.io.fits.verify import VerifyWarning
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
 
-# Load (most of) our sub-modules
-from stdpipe import astrometry, photometry, catalogs, cutouts, templates, subtraction, plots, psf, pipeline, utils
-
 # Adjust default parameters for imshow
 plt.rc('image', origin='lower', cmap='Blues_r')
-
-def goodman_wcs(header):
-    """
-    Creates a first guess of the WCS using the telescope coordinates, the
-    CCDSUM (binning), position angle and plate scale.
-    Parameters
-    ----------
-        data : numpy.ndarray
-            2D array with the data.
-        header : astropy.io.fits.Header
-            Primary Header to be updated.
-    Returns
-    -------
-        header : astropy.io.fits.Header
-            Primary Header with updated WCS information.
-    """
-
-    if 'EQUINOX' not in header:
-        header['EQUINOX'] = 2000.
-
-    if 'EPOCH' not in header:
-        header['EPOCH'] = 2000.
-        
-    binning = np.array([int(b) for b in header['CCDSUM'].split(' ')])
-    
-    header['PIXSCAL1'] =  -binning[0] * 0.15  # arcsec (for Swarp)
-    header['PIXSCAL2'] =  +binning[1] * 0.15  # arcsec  (for Swarp)
-
-    if abs(header['PIXSCAL1']) != abs(header['PIXSCAL2']):
-        logger.warning('Pixel scales for X and Y do not mach.')
-        
-    plate_scale = (abs(header['PIXSCAL1'])*u.arcsec).to('degree')
-    p = plate_scale.to('degree').value
-    w = wcs.WCS(naxis=2)
-    
-    try:
-        coordinates = SkyCoord(ra=header['RA'], dec=header['DEC'],
-                               unit=(u.hourangle, u.deg))
-    
-    except ValueError:
-    
-        logger.error(
-            '"RA" and "DEC" missing. Using "TELRA" and "TELDEC" instead.')
-   
-        coordinates = SkyCoord(ra=header['TELRA'], dec=header['TELDEC'],
-                               unit=(u.hourangle, u.deg))
-    
-    ra  = coordinates.ra.to('degree').value
-    dec = coordinates.dec.to('degree').value
-    
-    w.wcs.crpix = [header['NAXIS2'] / 2, header['NAXIS1'] / 2]
-    w.wcs.cdelt = [+1.*p,+1.*p] #* binning 
-    w.wcs.crval = [ra, dec]
-    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-    
-    wcs_header = w.to_header()
-    
-    for key in wcs_header.keys():
-        header[key] = wcs_header[key]
-    
-    return header
-
-def mask_fov(image, binning):
-    """
-        Mask out the edges of the FOV of the Goodman images
-    """
-    # define center of the FOV for binning 1, 2, and 3 
-    if binning == 1:
-        center_x, center_y, radius = 1520, 1570, 1550
-    if binning == 2:
-        center_x, center_y, radius = 770, 800, 775
-    if binning == 3:
-        center_x, center_y, radius = 510, 540, 515
-    else:
-        center_x, center_y, radius = image.shape[0]/2., image.shape[1]/2., image.shape[0]/2.
-
-    # create a grid of pixel coordinates
-    x, y = np.meshgrid( np.arange(image.shape[1]), np.arange(image.shape[0]) )
-
-    # calculate the distance of each pixel from the center of the FOV
-    distance = np.sqrt( (x - center_x)**2 + (y - center_y)**2 )
-    mask_fov = distance > radius
-    return mask_fov
 
 ###########################################################
 filename = './0277_wd1_r_5.fits'
 filename = './0274_wd1_r_025.fits'
 filename = './0280_wd1_r_60.fits'
+filename = './processed/cfzt_0277_wd1_r_5.fits'
+#filename = './processed/cfzt_0274_wd1_r_025.fits'
+#filename = './processed/cfzt_0280_wd1_r_60.fits'
 
-image  = fits.getdata(filename).astype(np.double)
-# add WCS
-header = goodman_wcs(fits.getheader(filename))
+#
+filename = './new_tests/0061_N24A-383097.fits'
+#filename = './new_tests/0177_EP240305a_z.fits'
+#filename = './new_tests/0277_wd1_r_5.fits'
+#filename = './new_tests/cfzst_0456_VFTS682_r.fits'
+#filename = './new_tests/cfzt_0277_wd1_r_5.fits'
+#filename = './new_tests/0175_EP240305a_r.fits'
+#filename = './new_tests/0178_EP240305a_g.fits'
+#filename = './new_tests/0280_wd1_r_60.fits'
+#filename = './new_tests/cfzst_0463_VFTS682_ii.fits'
+#filename = './new_tests/cfzt_0280_wd1_r_60.fits'
+#filename = './new_tests/0176_EP240305a_i.fits'
+#filename = './new_tests/0274_wd1_r_025.fits'
+#filename = './new_tests/cfzst_0450_VFTS682_g.fits'
+filename = './new_tests/cfzt_0274_wd1_r_025.fits'
 
-hdu = fits.PrimaryHDU(data=image, header=header)
-hdul = fits.HDUList([hdu])
-hdul.writeto(filename.replace(".fits","_wcs_init.fits"),overwrite=True)
+# 
+print_messages          = True  # print messages on screen during execution
+save_intermediary_files = False # save intermediary fits files
+save_scamp_plots        = True  # save scamp astrometric plots as png files
+save_plots              = True  # save plots as png files
 
-# get keywords from header
-fname = header.get('FILTER')
-binning = np.array([int(b) for b in header['CCDSUM'].split(' ')])[0]
-time  = utils.get_obs_time(header, verbose=False)
-gain = header.get('GAIN')
-# TODO define Saturation threshould based on GAIN from header (if gain==1.48, saturation == 50000,...)
-saturation = 50000
+# set up Vizier catalog, filter to be used and magnitude threshold limit.
+cat_name = 'gaiadr2'
+cat_magthresh = 17
 
-print('Processing %s: filter %s gain %.2f at %s' 
-      % (filename, fname, gain, time))
+scamp_flag = 1 # set maximum FLAG for performing astrometry using SCAMP, set to None for using all detections
 
-# Create mask of bad pixels
-mask = image > saturation # Rough saturation level
+# START THE CODE ----------
 
-# Cosmics
-cmask, cimage = astroscrappy.detect_cosmics(image, mask, verbose=False)
-mask |= cmask
+# set start of the code
+start = datetime.datetime.now()
 
-# mask out edge of the fov
-mask |= mask_fov(image, binning)
+# set up log file
+logfile = filename.replace(".fits","_astrometry_log.txt")
+gtools.log_message(logfile,"Start the log", init=True, print_time=True)
+gtools.log_message(logfile,"File: {}".format(filename), print_time=True)
 
-print('Done masking cosmics')
+##########################################################
+#
+# 1) load the fits file and retrieve header information
+#
 
-# write mask
-hdu = fits.PrimaryHDU(data=mask.astype(int), header=header)
-hdul = fits.HDUList([hdu])
-hdul.writeto(filename.replace(".fits","_mask.fits"),overwrite=True)
+# reads the FITS file
+image       = fits.getdata(filename).astype(np.double)
+header_init = fits.getheader(filename)
+
+# gather required information from the header
+fname, binning, time, gain, rdnoise, satur_thresh, exptime = gtools.get_info(header_init)
+
+
+# print information on screen
+if print_messages:
+    print('Processing %s: filter %s, gain %.2f, satur_thresh %.1f at %s' 
+        % (filename, fname, gain, satur_thresh, time))
+# log 
+gtools.log_message(logfile,"filter={} exptime={:.2f} binning={}x{}".format(fname, exptime, binning, binning), print_time=True)
+
+##########################################################
+#
+# 2) create bad pixel mask (BPM)
+#    masks the outside of the FOV and identify bad pixels.
+#    should work for raw and processed data
+#    (even if the data is already processed by Goodman Live Pipeline, we need to mask the region outside the FOV)
+#
+mask = gtools.bpm_mask(image, satur_thresh, binning)
+
+if print_messages:
+    print('Done masking cosmics')
+
+# creates HDU to save the BPM
+if save_intermediary_files is True:
+    hdu  = fits.PrimaryHDU(data=mask.astype(int), header=header_init)
+    hdul = fits.HDUList([hdu])
+    hdul.writeto(filename.replace(".fits","_mask.fits"),overwrite=True)
 
 # plot image
-plt.figure()
-plots.imshow(image, [0.5, 99.75], cmap='Blues_r')
-plt.title(os.path.split(filename)[1])
-plt.tight_layout()
-plt.savefig(filename.replace(".fits",".png"))
+file_out = filename.replace(".fits",".png") if save_plots is True else None
+gtools.imgshow(image, wcs=None, title=filename.replace(".fits",""), output=file_out, qq=(0.01,0.99), cmap='Blues_r')
+if save_plots: gtools.log_message(logfile,"Image - no WCS: {}".format(file_out), print_time=True)
 
 # plot mask
-plt.figure()
-plots.imshow(mask)
-plt.title('Mask')
-plt.tight_layout()
-plt.savefig(filename.replace(".fits","_mask.png"))
+file_out = filename.replace(".fits","_BPM.png") if save_plots is True else None
+gtools.imgshow(mask, wcs=None, title="Bad Pixel Mask", output=file_out, qq=(0,1), cmap='Blues_r')
+if save_plots: gtools.log_message(logfile,"Image - Bad pixel mask: {}".format(file_out), print_time=True)
 
-###########################
-# Initial WCS
-wcs = WCS(header)
+##########################################################
+#
+# 3) add initial WCS based on header (RA and DEC) information
+#    No correction for Instrument Position Angle is added, assuming N is up (y > 0)and E to the right (x < 0).
+#
+header   = gtools.goodman_wcs(header_init)
+wcs_init = gtools.check_wcs(header)
+
+# creates HDU to save intermediary files
+if save_intermediary_files is True:
+    hdu  = fits.PrimaryHDU(data=image, header=header)
+    hdul = fits.HDUList([hdu])
+    hdul.writeto(filename.replace(".fits","_wcs_init.fits"),overwrite=True)
 
 # get center position and pixscale
-ra0,dec0,sr0 = astrometry.get_frame_center(wcs=wcs, width=image.shape[1], height=image.shape[0])
-pixscale = astrometry.get_pixscale(wcs=wcs)
+ra0,dec0,fov_radius = gtools.get_frame_center(wcs=wcs_init, width=image.shape[1], height=image.shape[0])
+pixscale     = gtools.get_pixscale(wcs=wcs_init)
 
-print(f"RA={ra0} DEC={dec0} SR={sr0} PIXSCALE={pixscale}")
+if print_messages:
+    print(f"Initial WCS: RA={ra0} DEC={dec0} SR={fov_radius} PIXSCALE={pixscale}")
 
-###########################
-# Extract objects
+# log 
+gtools.log_message(logfile,"Center coordinates: RA={:.5f} Dec={:.5f} (initial WCS from fits header)".format(ra0, dec0), print_time=True)
 
 
-obj = photometry.get_objects_sextractor(image, mask=mask, gain=gain, r0=2, aper=5.0, wcs=wcs)
-print(len(obj), 'objects found')
-## TODO: the code above is not properly using the mask information. need to understand how to implement it better.
-
-# plot detections
-plt.figure()
-plots.imshow(image, interpolation='nearest')
-plt.plot(obj['x'], obj['y'], 'r.', ms=2)
-plt.title('Detected objects')
-plt.tight_layout()
-plt.savefig(filename.replace(".fits","_detections.png"))
-
-##############################
-# Data Quality output
+##########################################################
 #
-dq_flag = obj['flags'] == 0
-dq_obj = obj[dq_flag]
-# get FWHM from detections (using median and median absolute deviation as error)
-fwhm = np.median(dq_obj['fwhm'])
-fwhm_error = np.median(np.absolute(dq_obj['fwhm'] - np.median(dq_obj['fwhm'])))
-fwhm_arcsec = fwhm * pixscale * 3600.0
-fwhm_error_arcsec = fwhm * pixscale * 3600.0
-# estimate median ellipticity of the sources (ell = 1 - b/a)
-med_a = np.median(dq_obj['a']) # major axis
-med_b = np.median(dq_obj['b']) # minor axis
-med_a_error = np.median(np.absolute(dq_obj['a'] - np.median(dq_obj['a'])))
-med_b_error = np.median(np.absolute(dq_obj['b'] - np.median(dq_obj['b'])))
-ell = 1 - med_b / med_a
-ell_error = ell * np.sqrt( (med_a_error/med_a)**2 + (med_b_error/med_b)**2 )
-print('------------------------')
-print('  Data Quality outputs')
-print('           Nobj for DQ: {}/{}'.format(len(dq_obj),len(obj)))
-print('           Median FWHM: {:.2f}+/-{:.2f} pixels'.format(fwhm, fwhm_error))
-print('           Median FWHM: {:.2f}+/-{:.2f} arcsec'.format(fwhm_arcsec,fwhm_error_arcsec))
-print('    Median ellipticity: {:.3f}+/-{:.3f}'.format(ell, ell_error))
-print('------------------------')
-print('')
+# 4) Source detection with SExtractor
+#
+# Define extraction aperture: assuming a mean seeing of 1.0 arcseconds and an aperture based on a Gaussian Full Width at Tenth Maximum (FWTM).
+seeing    = 1.0 # arcseconds (fixed)
+fwtm2fwhm = 1.82
+sextractor_aperture = np.round(fwtm2fwhm * seeing / ( pixscale * 3600. ) )
 
-################################
-# Prepare for astrometry
+# run SExtractor to detect the sources
+obj = gtools.get_objects_sextractor(image, mask=mask, gain=gain, r0=2, aper=sextractor_aperture, wcs=wcs_init)
 
-# set up Vizier catalog, filter to be used and magnitude limit.
-cat_name = 'gaiadr2'
-cat_filter = 'rmag'
-cat_magthresh = 18
+# log 
+gtools.log_message(logfile,"SExtractor aperture radius={:.1f} pixels".format(sextractor_aperture), print_time=True)
 
-print('Performing astrometry with SCAMP using',cat_name)
+if print_messages:
+    print(len(obj), 'objects found')
 
-cat = catalogs.get_cat_vizier(ra0, dec0, sr0, cat_name, filters={'rmag':f'<18'})
-print('   ',len(cat), 'catalogue stars')
-## filter is not working on the code above
-cat = cat[cat[cat_filter] <= cat_magthresh]
-print('    {} filtered catalogue stars [{} <= {}]'.format(len(cat),cat_filter,cat_magthresh))
-print('')
+gtools.log_message(logfile,"SExtractor detections: {}".format(len(obj)), print_time=True)
 
-cat_col_mag = 'rmag'
-cat_color_mag1 = 'gmag'
-cat_color_mag2 = 'rmag'
-
-# WCS refinement
-#wcs = pipeline.refine_astrometry(obj, cat, 5*pixscale, wcs=wcs, order=1, cat_col_mag=cat_col_mag, method='scamp', verbose=True)
-
-# use SCAMP for astrometry
-
-# set up useful plots for astrometry
-SCAMP_plots = 'FGROUPS,DISTORTION,ASTR_REFERROR2D,ASTR_REFERROR1D'
-SCAMP_names = ','.join([filename.replace("./","").replace(".fits","") + "_SCAMP_" + item for item in SCAMP_plots.split(',')])
-
-header_wcs = astrometry.refine_wcs_scamp(obj, cat, sr=5*pixscale, wcs=wcs, order=3, 
-                                  cat_col_ra='RAJ2000', cat_col_dec='DEJ2000', cat_col_ra_err='e_RAJ2000', cat_col_dec_err='e_DEJ2000', cat_col_mag=cat_col_mag, cat_col_mag_err='e_'+cat_col_mag, 
-                                  update=True, verbose=True, get_header=True, extra={'CHECKPLOT_TYPE': SCAMP_plots, 'CHECKPLOT_NAME': SCAMP_names, 'CHECKPLOT_RES': '1200'})
-
-# write SCAMP results as a txt file
-with open(filename.replace(".fits","_scamp_results.txt"), 'w') as txt_file:
-    txt_file.write(repr(header_wcs))
-
-# get wcs from header
-wcs = WCS(header_wcs)
-
-if wcs is None or not wcs.is_celestial:
-    print('WCS refinement failed')
-
-# Update WCS info in the header
-astrometry.clear_wcs(header, remove_comments=True, remove_underscored=True, remove_history=True)
-header.update(wcs.to_header(relax=True))
-
-# Save fits file with correct WCS information
-hdu = fits.PrimaryHDU(data=image, header=header)
-hdul = fits.HDUList([hdu])
-hdul.writeto(filename.replace(".fits","_wcs.fits"),overwrite=True)
-
-print("Astrometry done")
-print('RMS(x,y) = {:.2f}" {:.2f}"'.format(header_wcs['ASTRRMS1']*3600.,header_wcs['ASTRRMS2']*3600.))
-
+# write number of detections per SExtractor flag.
+gtools.log_message(logfile,"SExtractor detections (per flag)", print_time=True)
+sex_flags = np.unique(obj['flags'])
+for sflag in sex_flags:
+    gtools.log_message(logfile,"flag={} - {}".format(sflag,np.sum(obj['flags']==sflag)), print_time=True)
+    if print_messages:
+        print("flag={} - {}".format(sflag,np.sum(obj['flags']==sflag)))
 print("")
 
-print("DONE")
+# plot detections
+file_out = filename.replace(".fits","_detections.png") if save_plots is True else None
+gtools.imgshow(image, wcs=None, px=obj['x'], py=obj['y'], title='Detected objects', output=file_out, qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)    
+if save_plots: gtools.log_message(logfile,"Image - SExtractor detections: {}".format(file_out), print_time=True)
+
+##############################
+#
+# 5) Data Quality results
+#
+# use FLAG=0 objects to derive DQ results
+dq_obj  = obj[obj['flags'] == 0]
+
+# plot detections
+file_out = filename.replace(".fits","_detections_flag0.png") if save_plots is True else None
+gtools.imgshow(image, wcs=None, px=dq_obj['x'], py=dq_obj['y'], title='Detected objects (FLAG=0)', output=file_out,
+               qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)
+if save_plots: gtools.log_message(logfile,"Image - SExtractor detections (flag=0): {}".format(file_out), print_time=True)
+
+
+# get median FWHM and ellipcity of the point sources
+fwhm, fwhm_error, ell, ell_error  = gtools.dq_results(dq_obj)
+
+# print results on screen
+if print_messages:
+    print('------------------------')
+    print('  Data Quality outputs')
+    print('           Nobj for DQ: {}/{}'.format(len(dq_obj),len(obj)))
+    print('           Median FWHM: {:.2f}+/-{:.2f} pixels'.format(fwhm, fwhm_error))
+    print('           Median FWHM: {:.2f}+/-{:.2f} arcsec'.format(fwhm * pixscale *3600.,fwhm_error * pixscale *3600.))
+    print('    Median ellipticity: {:.3f}+/-{:.3f}'.format(ell, ell_error))
+    print('------------------------')
+    print('')
+
+gtools.log_message(logfile,"Data Quality outputs", print_time=True)
+gtools.log_message(logfile,"Nobj for DQ: {}/{}".format(len(dq_obj),len(obj)), print_time=True)
+gtools.log_message(logfile,"Median FWHM: {:.2f}+/-{:.2f} pixels".format(fwhm, fwhm_error), print_time=True)
+gtools.log_message(logfile,"Median FWHM: {:.2f}+/-{:.2f} arcsec".format(fwhm * pixscale *3600.,fwhm_error * pixscale *3600.), print_time=True)
+gtools.log_message(logfile,"Median ellipticity: {:.3f}+/-{:.3f}".format(ell, ell_error), print_time=True)
+
+##############################
+#
+# 6) Run SCAMP for astrometric solution
+#
+#
+if print_messages:
+    print('Performing astrometry with SCAMP using',cat_name)
+
+# retrieve the filters to be used on the external catalog based on the Goodman filter information
+cat_filter, _, _, _ = gtools.filter_sets(fname)
+
+# log
+gtools.log_message(logfile,"Querying Vizier for {} catalog.".format(cat_name), print_time=True)
+
+# query the vizier catalog
+cat = gtools.get_cat_vizier(ra0, dec0, fov_radius, cat_name, filters={cat_filter:f'<{cat_magthresh}'})     # gtools
+if print_messages:
+    print('   {} catalogue stars on {} filter'.format(len(cat),cat_filter))
+
+# log
+gtools.log_message(logfile,"Retrieved {} stars on {} filter (magnitude threshold={:.2f})".format(len(cat), cat_filter, cat_magthresh), print_time=True)
+
+# if necessary, save the catalog
+if save_intermediary_files is True:
+    cat.write(filename.replace(".fits",f"_{cat_name}_cat.csv"), format='csv', overwrite=True)
+    gtools.log_message(logfile,"Vizier catalog saved as {}.".format(filename.replace(".fits",f"_{cat_name}_cat.csv")), print_time=True)
+
+# set up useful SCAMP plots for astrometry - this will not work when running python from Anaconda
+if save_scamp_plots:
+    SCAMP_plots = 'FGROUPS,DISTORTION,ASTR_REFERROR2D,ASTR_REFERROR1D'
+    SCAMP_names = ','.join([filename.replace("./","").replace(".fits","") + "_SCAMP_" + item for item in SCAMP_plots.split(',')])
+    scamp_extra = {'CHECKPLOT_TYPE': SCAMP_plots, 'CHECKPLOT_NAME': SCAMP_names, 'CHECKPLOT_RES': '1200'}
+else:
+    scamp_extra = {}
+
+# apply filter on SExtractor detections (remove bad detections including saturated, blended, sources at the edge of the CCD, etc.)
+obj_scamp = obj if scamp_flag is None else obj[obj['flags'] <= scamp_flag]
+
+# log
+gtools.log_message(logfile,"Running SCAMP for refining the WCS solution.", print_time=True)
+
+print(scamp_extra)
+
+# now run SCAMP to refine the WCS
+header_wcs = gtools.refine_wcs_scamp(obj, cat, sr=5*pixscale, wcs=wcs_init, order=3, 
+                                     cat_col_ra='RAJ2000', cat_col_dec='DEJ2000', cat_col_ra_err='e_RAJ2000', cat_col_dec_err='e_DEJ2000',
+                                     cat_col_mag=cat_filter, cat_col_mag_err='e_'+cat_filter, 
+                                     update=True, verbose=True, get_header=True, extra=scamp_extra)
+
+# write SCAMP results as a txt file
+if save_intermediary_files is True:
+    with open(filename.replace(".fits","_scamp_results.txt"), 'w') as txt_file:
+        txt_file.write(repr(header_wcs))
+    gtools.log_message(logfile,"SCAMP results saved as {}".format(filename.replace(".fits","_scamp_results.txt")), print_time=True)
+
+# get new WCS from header
+wcs = gtools.check_wcs(header_wcs)
+
+# Update WCS info in the header
+header_out = gtools.clear_wcs(header, remove_comments=True, remove_underscored=True, remove_history=True)
+
+if wcs is None or not wcs.is_celestial:
+    print('WCS refinement failed. Using initial WCS from header information.')
+    gtools.log_message(logfile,"WCS refinement failed. Using initial WCS from header information.", print_time=True)
+    header_out.update(wcs_init.to_header(relax=True))
+    header_out.append(('ASTR_SOL',  "Header information",               'Astrometry solution'),                                                          end=True)
+
+else:
+    print("WCS refinement was successful.")
+    print('RMS(x,y) = {:.2f}" {:.2f}"'.format(header_wcs['ASTRRMS1']*3600.,header_wcs['ASTRRMS2']*3600.))
+    gtools.log_message(logfile,'WCS refinement was successful. RMS(x,y) = {:.2f}" {:.2f}"'.format(header_wcs['ASTRRMS1']*3600.,header_wcs['ASTRRMS2']*3600.), print_time=True)
+
+    header_out.update(wcs.to_header(relax=True))
+    # Astrometric calibration setup
+    header_out.append(('ASTR_SOL',  "SCAMP",                            'Astrometry solution'),                                                          end=True)
+    header_out.append(('ASTRCAT',  cat_name.strip(),                    'Catalog name used for astrometric calibration'),                                end=True)
+    header_out.append(('ASTRCFIL', cat_filter.strip(),                  'Filter name used for retrieving the catalog list for astrometric calibration'), end=True)
+    header_out.append(('ASTRCMAG', float(cat_magthresh),                'Magnitude threshold for ASTRCFIL used for astrometric calibration'),            end=True)
+    # results from photometric calibration
+    header_out.append(('ASTRXRMS', float(header_wcs['ASTRRMS1']*3600.), 'Astrometric rms error on the x-axis (in arcseconds)'),                          end=True)
+    header_out.append(('ASTRYRMS', float(header_wcs['ASTRRMS2']*3600.), 'Astrometric rms error on the y-axis (in arcseconds)'),                          end=True)
+
+##############################
+#
+# 7) Save FITS file with correct astrometric solution
+#
+hdu  = fits.PrimaryHDU(data=image, header=header_out)
+hdul = fits.HDUList([hdu])
+hdul.writeto(filename.replace(".fits","_wcs.fits"),overwrite=True)
+gtools.log_message(logfile,'FITS file saved as {}'.format(filename.replace(".fits","_wcs.fits")), print_time=True)
+
+
+# set start of the code
+end = datetime.datetime.now()
+gtools.log_message(logfile,'Astrometric calibration executed in {:.2f} seconds'.format((end-start).total_seconds()), print_time=True)
+
+#
+# Exit
+#
+print("Astrometric solution was applied.")
+print("")
+
