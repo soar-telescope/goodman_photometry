@@ -17,11 +17,11 @@ warnings.simplefilter(action='ignore', category=VerifyWarning)
 plt.rc('image', origin='lower', cmap='Blues_r')
 
 ###########################################################
-filename = './0277_wd1_r_5_wcs.fits'
-filename = './0274_wd1_r_025_wcs.fits'
-filename = './0280_wd1_r_60_wcs.fits'
-filename = './processed/cfzt_0277_wd1_r_5_wcs.fits'
-filename = './new_tests/0061_N24A-383097.fits'
+#filename = './0277_wd1_r_5_wcs.fits'
+#filename = './0274_wd1_r_025_wcs.fits'
+#filename = './0280_wd1_r_60_wcs.fits'
+#filename = './processed/cfzt_0277_wd1_r_5_wcs.fits'
+#filename = './new_tests/0061_N24A-383097.fits'
 #filename = './new_tests/0177_EP240305a_z.fits'
 #filename = './new_tests/0277_wd1_r_5.fits'
 #filename = './new_tests/cfzst_0456_VFTS682_r.fits'
@@ -34,7 +34,9 @@ filename = './new_tests/0061_N24A-383097.fits'
 #filename = './new_tests/0176_EP240305a_i.fits'
 #filename = './new_tests/0274_wd1_r_025.fits'
 #filename = './new_tests/cfzst_0450_VFTS682_g.fits'
-filename = './new_tests/cfzt_0274_wd1_r_025.fits'
+#
+filename = './tests_last/0274_wd1_r_025.fits'
+filename = './tests_last/cfzt_0274_wd1_r_025.fits'
 
 # add suffix for astrometric calibrated frames
 filename = filename.replace(".fits","_wcs.fits")
@@ -227,10 +229,28 @@ m = gtools.calibrate_photometry(obj, cat, pixscale=pixscale, ecmag_thresh = ecma
 # check if there are photometric results to proceed (in case of no results, the WCS might be wrong)
 gtools.check_phot(m)
 
-# convert the dict 'm' to an astropy table
-m_table = gtools.phot_table(m)
-m_table.write(filename.replace(".fits","_phot_table.html"), format='html', overwrite=True)
-gtools.log_message(logfile,"Table of sources used for photometric calibration is stored as {}".format(filename.replace(".fits","_phot_table.html")), print_time=True)
+# convert the dict 'm' to an astropy table (not required)
+#m_table = gtools.phot_table(m)
+#m_table.write(filename.replace(".fits","_phot_table.html"), format='html', overwrite=True)
+#gtools.log_message(logfile,"Table of sources used for photometric calibration is stored as {}".format(filename.replace(".fits","_phot_table.html")), print_time=True)
+
+# calibrate all detections
+if color_term :
+    obj['mag_calib'] = obj['mag'] + obj['color'] * m['color_term'] + m['zero_fn'](obj['x'], obj['y'])
+else:
+    obj['mag_calib'] = obj['mag'] + m['zero_fn'](obj['x'], obj['y'])
+
+obj['mag_calib_err'] = np.hypot(obj['magerr'],m['zero_fn'](obj['x'], obj['y'], get_err=True)) # TODO: add color-term uncertainty
+
+# convert photometric table to astropy table
+obj_table = gtools.phot_table(obj, pixscale=pixscale*3600., columns=['x','y','xerr','yerr','flux','fluxerr','mag','magerr','a','b','theta','FLUX_RADIUS','fwhm','flags','bg','ra','dec','mag_calib','mag_calib_err'])
+obj_table.write(filename.replace(".fits","_obj_table.html"), format='html', overwrite=True)
+gtools.log_message(logfile,"Table of sources used for photometric calibration is stored as {}".format(filename.replace(".fits","_obj_table.html")), print_time=True)
+
+# plot calibrated detections over the image 
+gtools.plot_photcal(image, obj_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,0.98))
+plt.savefig(filename.replace(".fits","_phot_detections_calibrated.png"))
+gtools.log_message(logfile,"Photometric calibrated detections plotted over the image with WCS solution as {}".format(filename.replace(".fits","_phot_detections_calibrated.png")), print_time=True)
 
 # define a map in a 60"x60" binning.
 plot_bins = np.round( 2. * ( fov_radius * 3600. ) / 60.0 )

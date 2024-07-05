@@ -17,15 +17,11 @@ warnings.simplefilter(action='ignore', category=VerifyWarning)
 plt.rc('image', origin='lower', cmap='Blues_r')
 
 ###########################################################
-filename = './0277_wd1_r_5.fits'
-filename = './0274_wd1_r_025.fits'
-filename = './0280_wd1_r_60.fits'
-filename = './processed/cfzt_0277_wd1_r_5.fits'
-#filename = './processed/cfzt_0274_wd1_r_025.fits'
-#filename = './processed/cfzt_0280_wd1_r_60.fits'
-
-#
-filename = './new_tests/0061_N24A-383097.fits'
+#filename = './0277_wd1_r_5_wcs.fits'
+#filename = './0274_wd1_r_025_wcs.fits'
+#filename = './0280_wd1_r_60_wcs.fits'
+#filename = './processed/cfzt_0277_wd1_r_5_wcs.fits'
+#filename = './new_tests/0061_N24A-383097.fits'
 #filename = './new_tests/0177_EP240305a_z.fits'
 #filename = './new_tests/0277_wd1_r_5.fits'
 #filename = './new_tests/cfzst_0456_VFTS682_r.fits'
@@ -38,7 +34,9 @@ filename = './new_tests/0061_N24A-383097.fits'
 #filename = './new_tests/0176_EP240305a_i.fits'
 #filename = './new_tests/0274_wd1_r_025.fits'
 #filename = './new_tests/cfzst_0450_VFTS682_g.fits'
-filename = './new_tests/cfzt_0274_wd1_r_025.fits'
+#
+filename = './tests_last/0274_wd1_r_025.fits'
+filename = './tests_last/cfzt_0274_wd1_r_025.fits'
 
 # 
 print_messages          = True  # print messages on screen during execution
@@ -162,7 +160,6 @@ for sflag in sex_flags:
     gtools.log_message(logfile,"flag={} - {}".format(sflag,np.sum(obj['flags']==sflag)), print_time=True)
     if print_messages:
         print("flag={} - {}".format(sflag,np.sum(obj['flags']==sflag)))
-print("")
 
 # plot detections
 file_out = filename.replace(".fits","_detections.png") if save_plots is True else None
