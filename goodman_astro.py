@@ -709,8 +709,6 @@ def dq_results(dq_obj):
     # get FWHM from detections (using median and median absolute deviation as error)
     fwhm = np.median(dq_obj['fwhm'])
     fwhm_error = np.median(np.absolute(dq_obj['fwhm'] - np.median(dq_obj['fwhm'])))
-    #fwhm_arcsec = fwhm * pixscale * 3600.0
-    #fwhm_error_arcsec = fwhm * pixscale * 3600.0
 
     # estimate median ellipticity of the sources (ell = 1 - b/a)
     med_a = np.median(dq_obj['a']) # major axis
@@ -1262,6 +1260,36 @@ def plot_photometric_match(
 
     return ax
 
+# plots (F Navarete)
+def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,0.98)):
+    # plots photometric calibrated sources over the image
+    from matplotlib.patches import Ellipse
+    plt.figure()
+    ax = plt.subplot(projection=wcs)
+
+    # define percentiles for plotting the data
+    quant = np.nanquantile(image,qq)
+    if quant[0] < 0 :
+        quant[0] = 0
+
+    im = ax.imshow(image, cmap='gray', origin='lower', vmin=quant[0], vmax=quant[1])
+
+    norm = plt.Normalize(phot_table[column_scale].min(), phot_table[column_scale].max())
+    cmap = plt.cm.viridis.reversed()
+
+    # add ellipses to the plot:
+    for row in phot_table:
+        e = Ellipse( ( row['x'], row['y'] ), width=2*row['a'], height=2*row['b'], angle=row['theta'],
+                     edgecolor=cmap(norm(row[column_scale])), facecolor='none', linewidth=1, transform=ax.get_transform('pixel'))
+        ax.add_patch(e)
+
+    # add color bar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([]) # not required for Matplotlib >= 3.1
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.set_label(column_scale)
+    cbar.ax.invert_yaxis()
+    plt.tight_layout()
 
 # cat (STDPipe)
 catalogs = {
@@ -2378,7 +2406,7 @@ def calibrate_photometry(
     return m
 
 # phot (F Navarete)
-def phot_table(m):
+def phot_table(m, pixscale=None, columns=None):
     """
       Convert dict returned by calibrate_photometry() to an astropy Table.
       Result table:
@@ -2409,6 +2437,17 @@ def phot_table(m):
         #    print(column)
         #    print(m[column])
         #    print("")
+
+    if columns is not None:
+        m_table = m_table[columns]
+    
+    if pixscale is not None:
+        # convert FWHM from pixel to arcseconds
+        fwhm_index = m_table.colnames.index('fwhm')
+        m_table.add_column(m_table['fwhm'] * pixscale, name='fwhm_arcsec', index=fwhm_index+1)
+        # evaluate ellipticity
+        b_index = m_table.colnames.index('b')
+        m_table.add_column(1 - m_table['b'] / m_table['a'], name='ell', index=b_index+1)
 
     return m_table
 
