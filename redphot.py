@@ -17,48 +17,39 @@ warnings.simplefilter(action='ignore', category=VerifyWarning)
 plt.rc('image', origin='lower', cmap='Blues_r')
 
 ###########################################################
-#filename = './0277_wd1_r_5_wcs.fits'
-#filename = './0274_wd1_r_025_wcs.fits'
-#filename = './0280_wd1_r_60_wcs.fits'
-#filename = './processed/cfzt_0277_wd1_r_5_wcs.fits'
-#filename = './new_tests/0061_N24A-383097.fits'
-#filename = './new_tests/0177_EP240305a_z.fits'
-#filename = './new_tests/0277_wd1_r_5.fits'
-#filename = './new_tests/cfzst_0456_VFTS682_r.fits'
-#filename = './new_tests/cfzt_0277_wd1_r_5.fits'
-#filename = './new_tests/0175_EP240305a_r.fits'
-#filename = './new_tests/0178_EP240305a_g.fits'
-#filename = './new_tests/0280_wd1_r_60.fits'
-#filename = './new_tests/cfzst_0463_VFTS682_ii.fits'
-#filename = './new_tests/cfzt_0280_wd1_r_60.fits'
-#filename = './new_tests/0176_EP240305a_i.fits'
-#filename = './new_tests/0274_wd1_r_025.fits'
-#filename = './new_tests/cfzst_0450_VFTS682_g.fits'
 #
-filename = './tests_last/0274_wd1_r_025.fits'
-filename = './tests_last/cfzt_0274_wd1_r_025.fits'
+# User input parameters
+#
 
-# add suffix for astrometric calibrated frames
+# full path of the fits file
+filename = './tests_last/0277_wd1_r_5.fits'
+#filename = './tests_last/cfzt_0277_wd1_r_5.fits'
+#filename = './tests_last/cfzt_0280_wd1_r_60.fits'
+
+# add suffix for astrometric calibrated frames (this should be the output from redastro.py)
 filename = filename.replace(".fits","_wcs.fits")
 
+########################
+# 
+# Default configurations
+#
 # save intermediary fits files and plots
 print_messages = True
 save_intermediary_files = False
 save_plots = True
 
-color_term = False # set as True for using color term for photometric calibration
-
 # set up Vizier catalog, filter to be used and magnitude limit.
 cat_name = 'gaiadr2'  # set up the catalog name
 cat_magthresh = 17    # use only sources brighter than this limit for deriving astrometric solution
+
 # parameters for photometric calibration 
 ecmag_thresh = 0.1    # use only magnitude measurements with error smaller than this limit
 cmag_limits = [8,22]  # use only magnitude measurements within the provided range for catalog stars (avoid weird sources)
 
-## TODO: save 'm' dictionary as a table containing all the photometric results - done!
-## TODO: generate a log file - done
-## TODO: understand the difference betweem empirical and model ZP
+img_dpi = 600 # set the DPI of the plots (300 by default)
 
+# #################################
+#
 # START THE CODE ----------
 
 # set start time of the code
@@ -81,7 +72,6 @@ header = fits.getheader(filename)
 # check if WCS is present
 wcs = gtools.check_wcs(header)
 
-
 # get center position and pixscale
 center_ra, center_dec, fov_radius = gtools.get_frame_center(wcs=wcs, width=image.shape[1], height=image.shape[0])      # STDpipe
 pixscale = gtools.get_pixscale(wcs=wcs)
@@ -101,8 +91,6 @@ fname, binning, time, gain, rdnoise, satur_thresh, exptime = gtools.get_info(hea
 # log 
 gtools.log_message(logfile,"filter={} exptime={:.2f} binning={}x{} pixscale={:.3f}".format(fname, exptime, binning, binning, 3600*pixscale), print_time=True)
 
-
-
 # we need counts/sec for estimating the photometric ZP
 image /= exptime
 
@@ -113,10 +101,8 @@ if print_messages:
 
 # plot image
 file_out = filename.replace(".fits","_phot_wcs.png") if save_plots is True else None
-gtools.imgshow(image, wcs=wcs, title=filename.replace(".fits",""), output=file_out, qq=(0.01,0.99), cmap='Blues_r')
+gtools.imgshow(image, wcs=wcs, title=filename.replace(".fits",""), output=file_out, dpi=img_dpi, qq=(0.01,0.99), cmap='Blues_r')
 if save_plots: gtools.log_message(logfile,"Image - Astrometric calibrated, ready for photometry: {}".format(file_out), print_time=True)
-
-
 
 ##########################################################
 #
@@ -161,7 +147,7 @@ for sflag in sex_flags:
 
 # plot detections
 file_out = filename.replace(".fits","_phot_detections.png") if save_plots is True else None
-gtools.imgshow(image, wcs=wcs, px=obj['x'], py=obj['y'], title='Detected objects', output=file_out, qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)
+gtools.imgshow(image, wcs=wcs, px=obj['x'], py=obj['y'], title='Detected objects', output=file_out, dpi=img_dpi, qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)
 if save_plots: gtools.log_message(logfile,"Image - SExtractor detections: {}".format(file_out), print_time=True)
 
 ##############################
@@ -173,7 +159,7 @@ dq_obj  = obj[obj['flags'] == 0]
 
 # plot detections
 file_out = filename.replace(".fits","_phot_detections_flag0.png") if save_plots is True else None
-gtools.imgshow(image, wcs=None, px=dq_obj['x'], py=dq_obj['y'], title='Detected objects (FLAG=0)', output=file_out, qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)
+gtools.imgshow(image, wcs=None, px=dq_obj['x'], py=dq_obj['y'], title='Detected objects (FLAG=0)', output=file_out, dpi=img_dpi, qq=(0.01,0.99), cmap='Blues_r', pmarker='r.', psize=2, show_grid=False)
 if save_plots: gtools.log_message(logfile,"Image - SExtractor detections (flag=0): {}".format(file_out), print_time=True)
 
 # get median FWHM and ellipcity of the point sources
@@ -201,7 +187,10 @@ gtools.log_message(logfile,"Median ellipticity: {:.3f}+/-{:.3f}".format(ell, ell
 # 5) Run photometry
 #
 # retrieve the filters to be used on the external catalog based on the Goodman filter information
-cat_filter, phot_mag, phot_color_mag1, phot_color_mag2 = gtools.filter_sets(fname)
+#cat_filter, phot_mag, phot_color_mag1, phot_color_mag2 = gtools.filter_sets(fname)
+cat_filter, phot_mag = gtools.filter_sets(fname)
+
+default_filter = 'Gmag' # let's create a default filter for estimating the ZP for all images
 
 if print_messages:
     print("Calibrating Goodman HST {} filter observations using {} magnitudes from {} converted to {} filter.".format(fname,cat_filter,cat_name,phot_mag))
@@ -212,19 +201,24 @@ if print_messages:
     print('   {} catalogue stars on {} filter'.format(len(cat),cat_filter))
 
 gtools.log_message(logfile,"Photometric calibration using {} magnitudes from {} converted to {} filter".format(cat_filter,cat_name,phot_mag), print_time=True)
-if color_term:
-    gtools.log_message(logfile,"using photometric color term based on {}-{} color index".format(phot_color_mag1, phot_color_mag2), print_time=True)
+#if color_term:
+#    gtools.log_message(logfile,"using photometric color term based on {}-{} color index".format(phot_color_mag1, phot_color_mag2), print_time=True)
 
 # photometric filters for deriving the calibration (should be as close as possible as the filter in use. available filters from GaiaDR2 are:
 # "Gmag,BPmag,RPmag,Bmag,Vmag,Rmag,Imag,gmag,rmag,g_SDSS,r_SDSS,i_SDSS"
 
 # Use color term for photometric calibration or not
-phot_color_mag1 = phot_color_mag1 if color_term else None
-phot_color_mag2 = phot_color_mag1 if color_term else None
+#phot_color_mag1 = phot_color_mag1 if color_term else None
+#phot_color_mag2 = phot_color_mag2 if color_term else None
 
 # Photometric calibration
+#m = gtools.calibrate_photometry(obj, cat, pixscale=pixscale, ecmag_thresh = ecmag_thresh, cmag_limits = cmag_limits,  
+#                                cat_col_mag=phot_mag, cat_col_mag1=phot_color_mag1, cat_col_mag2=phot_color_mag2, order=0, verbose=True)
 m = gtools.calibrate_photometry(obj, cat, pixscale=pixscale, ecmag_thresh = ecmag_thresh, cmag_limits = cmag_limits,  
-                                cat_col_mag=phot_mag, cat_col_mag1=phot_color_mag1, cat_col_mag2=phot_color_mag2, order=0, verbose=True)
+                                cat_col_mag=phot_mag, cat_col_mag1=None, cat_col_mag2=None, order=0, verbose=True)
+
+m_default = gtools.calibrate_photometry(obj, cat, pixscale=pixscale, ecmag_thresh = ecmag_thresh, cmag_limits = cmag_limits,  
+                                        cat_col_mag=default_filter, cat_col_mag1=None, cat_col_mag2=None, order=0, verbose=True)
 
 # check if there are photometric results to proceed (in case of no results, the WCS might be wrong)
 gtools.check_phot(m)
@@ -234,39 +228,44 @@ gtools.check_phot(m)
 #m_table.write(filename.replace(".fits","_phot_table.html"), format='html', overwrite=True)
 #gtools.log_message(logfile,"Table of sources used for photometric calibration is stored as {}".format(filename.replace(".fits","_phot_table.html")), print_time=True)
 
-# calibrate all detections
-if color_term :
-    obj['mag_calib'] = obj['mag'] + obj['color'] * m['color_term'] + m['zero_fn'](obj['x'], obj['y'])
-else:
-    obj['mag_calib'] = obj['mag'] + m['zero_fn'](obj['x'], obj['y'])
+#if color_term (there's no way to add a color-term calibration to a single filter exposure! I'm skipping that...
+#    obj['mag_calib'] = obj['mag'] + obj['color'] * m['color_term'] + m['zero_fn'](obj['x'], obj['y'])
+#else:
 
-obj['mag_calib_err'] = np.hypot(obj['magerr'],m['zero_fn'](obj['x'], obj['y'], get_err=True)) # TODO: add color-term uncertainty
+# calibrate all detections
+obj['mag_calib'] = obj['mag'] + m['zero_fn'](obj['x'], obj['y'])
+
+obj['mag_calib_err'] = np.hypot(obj['magerr'],m['zero_fn'](obj['x'], obj['y'], get_err=True))
 
 # convert photometric table to astropy table
 obj_table = gtools.phot_table(obj, pixscale=pixscale*3600., columns=['x','y','xerr','yerr','flux','fluxerr','mag','magerr','a','b','theta','FLUX_RADIUS','fwhm','flags','bg','ra','dec','mag_calib','mag_calib_err'])
 obj_table.write(filename.replace(".fits","_obj_table.html"), format='html', overwrite=True)
 gtools.log_message(logfile,"Table of sources used for photometric calibration is stored as {}".format(filename.replace(".fits","_obj_table.html")), print_time=True)
 
-# plot calibrated detections over the image 
-gtools.plot_photcal(image, obj_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,0.98))
-plt.savefig(filename.replace(".fits","_phot_detections_calibrated.png"))
+# plot calibrated detections over the image
+fileout = filename.replace(".fits","_phot_detections_calibrated.png")
+gtools.plot_photcal(image, obj_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,0.98), output=fileout, dpi=img_dpi)
 gtools.log_message(logfile,"Photometric calibrated detections plotted over the image with WCS solution as {}".format(filename.replace(".fits","_phot_detections_calibrated.png")), print_time=True)
 
 # define a map in a 60"x60" binning.
 plot_bins = np.round( 2. * ( fov_radius * 3600. ) / 60.0 )
 
 plt.figure()
-gtools.plot_photometric_match(m, mode='dist', bins=plot_bins)     # gtools
+gtools.plot_photometric_match(m, mode='dist', bins=plot_bins)
 plt.tight_layout()
 if save_plots is True:
     plt.savefig(filename.replace(".fits","_phot_photmatch.png"))
 
+# plot the photometric calibration curve
 plt.figure()
-plt.subplot(211)
-gtools.plot_photometric_match(m)     # gtools
+#if color_term:
+#    plt.subplot(211)
+gtools.plot_photometric_match(m) #, cmag_limits = cmag_limits) 
 
-plt.subplot(212)
-gtools.plot_photometric_match(m, mode='color')     # gtools
+#if color_term:
+#    plt.subplot(212)
+#    gtools.plot_photometric_match(m, mode='color') 
+
 plt.tight_layout()
 if save_plots is True:
     plt.savefig(filename.replace(".fits","_phot_photmatch2.png"))
@@ -291,32 +290,38 @@ if print_messages:
     print("Median empirical ZP: {:.3f}+/-{:.3f}".format(med_zp, med_ezp))
     #print("    Median model ZP: {:.3f}+/-{:.3f}".format(med_mzp, med_emzp))
 
+med_zp_default, med_ezp_default = gtools.phot_zeropoint(m_default)
+if print_messages:
+    print("Median empirical ZP on {} filter: {:.3f}+/-{:.3f}".format(default_filter,med_zp_default, med_ezp_default))
 
 gtools.log_message(logfile,"Median empirical ZP: {:.3f}+/-{:.3f}".format(med_zp, med_ezp), print_time=True)
 
 # Update the header information
 header_out = header
 # results from Data Quality measurements (Sextractor)
-header_out.append(('SNDET',len(obj),                           'Number of SEXtractor sources'),                                                 end=True)
-header_out.append(('SNDET-DQ',len(dq_obj),                     'Number of SEXtractor sources associated with FLAG=0 (used for DQ)'),            end=True)
-header_out.append(('SFWHM',float(fwhm),                        'Median FWHM of SEXtractor sources associated with FLAG=0 (in pixels)'),         end=True)
-header_out.append(('SFWHMUNC',float(fwhm_error),               'Uncertainty on FWHM of SEXtractor sources associated with FLAG=0 (in pixels)'), end=True) 
-header_out.append(('SELL',float(ell),                          'Ellipticity of SEXtractor sources associated with FLAG=0'),                     end=True)
-header_out.append(('SELLUNC',float(ell_error),                 'Uncertainty on ellipticity of SEXtractor sources associated with FLAG=0'),      end=True) 
-header_out.append(('SSEEING',float(fwhm * pixscale *3600.),    'Median FWHM of SEXtractor sources associated with FLAG=0 (in arcsec)'),         end=True)
-header_out.append(('SSEEINGU',float(fwhm_error*pixscale*3600.),'Uncertainty on FWHM of SEXtractor sources associated with FLAG=0 (in arcsec)'), end=True) 
+header_out.append(('GSP_NDET', len(obj),                         'Number of SEXtractor sources'),                                                 end=True)
+header_out.append(('GSP_NDDQ', len(dq_obj),                      'Number of SEXtractor sources associated with FLAG=0 (used for DQ)'),            end=True)
+header_out.append(('GSP_FWHM', float(fwhm),                      'Median FWHM of SEXtractor sources associated with FLAG=0 (in pixels)'),         end=True)
+header_out.append(('GSP_FUNC', float(fwhm_error),                'Uncertainty on FWHM of SEXtractor sources associated with FLAG=0 (in pixels)'), end=True) 
+header_out.append(('GSP_ELLI', float(ell),                       'Ellipticity of SEXtractor sources associated with FLAG=0'),                     end=True)
+header_out.append(('GSP_EUNC', float(ell_error),                 'Uncertainty on ellipticity of SEXtractor sources associated with FLAG=0'),      end=True) 
+header_out.append(('GSP_SEEI', float(fwhm * pixscale *3600.),    'Median FWHM of SEXtractor sources associated with FLAG=0 (in arcsec)'),         end=True)
+header_out.append(('GSP_SUNC', float(fwhm_error*pixscale*3600.), 'Uncertainty on FWHM of SEXtractor sources associated with FLAG=0 (in arcsec)'), end=True) 
 # photometric calibration setup
-header_out.append(('PHOTCAT',cat_name,                         'Catalog name used for photometric calibration'),                                end=True)
-header_out.append(('PHOTCFIL',cat_filter,                      'Filter name used for retrieving the catalog list for photometric calibration'), end=True)
-header_out.append(('PHOTCMAG',float(cat_magthresh),            'Magnitude threshold for PHOTCFIL used for photometric calibration'),            end=True)
-header_out.append(('PHOTCTHR',float(ecmag_thresh),             'Use catalog sources with magnitude errors smaller than this threshold for photometric calibration'), end=True)
-header_out.append(('PHOTCLMB',str(cmag_limits),                'Magnitude range of catalog sources used for photometric calibration'),          end=True)
-header_out.append(('PHOTFILT',phot_mag,                        'Filter used for photometric calibration'),                                      end=True)
-header_out.append(('PHOTCOL1',phot_color_mag1,                 'Filter #1 used for color correction on the photometric calibration'),           end=True)
-header_out.append(('PHOTCOL2',phot_color_mag2,                 'Filter #2 used for color correction on the photometric calibration'),           end=True)
+header_out.append(('GSP_PCAT', cat_name,                         'Catalog name used for photometric calibration'),                                end=True)
+header_out.append(('GSP_CFIL', cat_filter,                       'Filter name used for retrieving the catalog list for photometric calibration'), end=True)
+header_out.append(('GSP_CMAG', float(cat_magthresh),             'Magnitude threshold for PHOTCFIL used for photometric calibration'),            end=True)
+header_out.append(('GSP_CMET', float(ecmag_thresh),              'Use catalog sources with magnitude errors smaller than this threshold for photometric calibration'), end=True)
+header_out.append(('GSP_CMLM', str(cmag_limits),                 'Magnitude range of catalog sources used for photometric calibration'),          end=True)
+header_out.append(('GSP_PFIL', phot_mag,                         'Filter used for photometric calibration'),                                      end=True)
+#header_out.append(('GSP_PCOL', color_term,                       'Using color-term for photometric calibration [True/False]'),                    end=True)
+#header_out.append(('GSP_COL1', phot_color_mag1,                  'Filter #1 used for color-term correction on the photometric calibration'),      end=True)
+#header_out.append(('GSP_COL2', phot_color_mag2,                  'Filter #2 used for color-term correction on the photometric calibration'),      end=True)
 # results from photometric calibration
-header_out.append(('MAGZPT',float(med_zp),                     'Filter #2 used for color correction on the photometric calibration'),           end=True)
-header_out.append(('MAGZPTER',float(med_ezp),                  'Filter #2 used for color correction on the photometric calibration'),           end=True)
+header_out.append(('GSP_MZPT', float(med_zp),                    'Photometric zero point on {} filter'.format(phot_mag)),                         end=True)
+header_out.append(('GSP_EZPT', float(med_ezp),                   'Error of the photometric zero point on {} filter'.format(phot_mag)),            end=True)
+header_out.append(('GSP_MZPG', float(med_zp_default),            'Photometric zero point on {} filter'.format(default_filter)),                   end=True)
+header_out.append(('GSP_EZPG', float(med_ezp_default),           'Error of the photometric zero point on {} filter'.format(default_filter)),      end=True)
 
 ##############################
 #

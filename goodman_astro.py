@@ -1,32 +1,34 @@
-
+import astroscrappy
+import dateutil
+import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os, shutil, tempfile, shlex, re
+import statsmodels.api as sm
 import sys
-import dateutil
-import datetime
-from astropy.time import Time
-from astroquery.vizier import Vizier
-from scipy.stats import chi2
-from astropy.coordinates import SkyCoord, search_around_sky
 from astropy import units as u
 from astropy import wcs
-from astropy.wcs import WCS
-# sextractor
+from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io import fits as fits
 from astropy.table import Table
+from astropy.time import Time
+from astropy.wcs import WCS
+from astroquery.vizier import Vizier
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.stats import chi2
 from scipy.stats import binned_statistic_2d
 
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-import statsmodels.api as sm
-
-import astroscrappy
-
-
-# (F Navarete)
+# Utils (F Navarete)
 def log_message(file,message, init=False, print_time=False):
-    """ Function to log a message to a file."""
+    """
+      Initiates a log file and append a message to it.
+
+        file        (str): full path of the file to be created or to append a message to it.
+        message     (str): message to be appended to the file.
+        init       (bool): if True, initialize a new file.
+        print_time (bool): if True, will print a timestamp before the message.
+    
+    """
     if init:
         with open(file,'w') as f:
             f.write('')
@@ -40,6 +42,21 @@ def log_message(file,message, init=False, print_time=False):
 
 # (F Navarete)
 def get_info(header):
+    """
+      reads a fits header and returns specific keywords used during the execution of the codes.
+        
+        header (astropy.io.fits.Header): FITS header.
+    
+      returns:
+        fname          (str): filter name
+        binning        (int): binning factor (single element). For imaging mode, the full binning information should be 'binning'x'binning'
+        time           (str): observing time
+        gain         (float): gain value (e-/ADU)
+        rdnoise      (float): read noise (e-)
+        satur_thresh (float): saturation threshold based on the readout mode (in ADU)
+        exptime      (float): exposure time (in sec)
+    
+    """
 
     # check if observations are done in imaging mode. if not, exit the code
     wavmode = header.get('WAVMODE')
@@ -67,6 +84,13 @@ def get_info(header):
 def get_saturation(gain,rdnoise):
     """
       Simple function to estimate the saturation threshold based on the readout mode.
+
+        gain         (float): gain value (e-/ADU)
+        rdnoise      (float): read noise (e-)
+
+      returns:
+        satur_thresh (float): saturation threshold based on the readout mode (in ADU)
+    
     """
     if   gain == 1.54 and rdnoise == 3.45: satur_thresh = 50000 # 100kHzATTN3
     elif gain == 3.48 and rdnoise == 5.88: satur_thresh = 25000 # 100kHzATTN2
@@ -83,6 +107,11 @@ def get_saturation(gain,rdnoise):
 def check_wavmode(wavmode):
     """
       Simple function to check whether WAVMODE is IMAGING or not.
+
+        wavmode (str): Goodman header's keyword. Should be IMAGING or SPECTROSCOPY. 
+
+      returns:
+        if wavmode is not IMAGING, halts the code.
     """
     if wavmode != "IMAGING":
         sys.exit("WAVMODE is not IMAGING. No data to process.")
@@ -93,7 +122,13 @@ def check_wavmode(wavmode):
 # (F Navarete)
 def check_wcs(header):
     """
-      Simple function to check whether the WCS information in the header is Celestial or not.
+      Simple function to check whether the header has a WCS solution or not.
+
+        header (astropy.io.fits.Header): FITS header.
+    
+      returns:
+        if no WCS is present, halts the code.
+
     """
     wcs = WCS(header)
 
@@ -107,6 +142,12 @@ def check_wcs(header):
 def check_phot(m):
     """
       Simple function to check whether a dictionary is None or not.
+
+        m (dict): output from calibrate_photometry()
+    
+      returns:
+        if 'm' is None, halts the code.
+
     """
     if m is None:
         sys.exit("Impossible to retrieve photometric results.")
@@ -114,7 +155,18 @@ def check_phot(m):
 # (F Navarete)
 def filter_sets(fname):
     """
-      Simple function to define which set of filters will be used based on the goodman filter in usage. 
+      Simple function to define which set of filters will be used based on the Goodman filter in usage.
+
+        fname (str): Goodman filter name (from header's FILTER/FILTER2 keywords)
+
+      returns:
+        cat_filter (str): Gaia filter to be retrieved
+        phot_mag   (str): will convert the Gaia filter magnitude to the following filter
+    
+      TODO: Right now, the function works for SDSS filters only. 
+            Needs to add Bessel UBVRI, Johnson UBV, stromgren ubvy, Kron-Cousins Rc. 
+            Narrow band filters should deliver results in the same filter.
+ 
     """
 
     # photometric filters for deriving the calibration (should be as close as possible as the filter in use.
@@ -124,49 +176,47 @@ def filter_sets(fname):
     if fname == "u-SDSS":
         cat_filter = "BPmag"
         phot_mag = "u_SDSS"
-        phot_color_mag1 = "u_SDSS"
-        phot_color_mag2 = "g_SDSS"
+        #phot_color_mag1 = "u_SDSS"
+        #phot_color_mag2 = "g_SDSS"
     elif fname == "g-SDSS":
         cat_filter = "BPmag"
         phot_mag = "g_SDSS"
-        phot_color_mag1 = "g_SDSS"
-        phot_color_mag2 = "r_SDSS"
+        #phot_color_mag1 = "g_SDSS"
+        #phot_color_mag2 = "r_SDSS"
     elif fname == "r-SDSS":
         cat_filter = "Gmag"
         phot_mag = "r_SDSS"
-        phot_color_mag1 = "g_SDSS"
-        phot_color_mag2 = "r_SDSS"
+        #phot_color_mag1 = "g_SDSS"
+        #phot_color_mag2 = "r_SDSS"
     elif fname == "i-SDSS" or fname == "z-SDSS":
         cat_filter = "Gmag"
         phot_mag = "i_SDSS"
-        phot_color_mag1 = "r_SDSS"
-        phot_color_mag2 = "i_SDSS"
+        #phot_color_mag1 = "r_SDSS"
+        #phot_color_mag2 = "i_SDSS"
     else:
         # for any other filter, use the GaiaDR2 G-band magnitudes
         # TODO: add transformation for the z-SDSS filter
         # TODO: add transformation for Bessel, stromgren
         cat_filter = "Gmag"
         phot_mag = "g_SDSS"
-        phot_color_mag1 = "g_SDSS"
-        phot_color_mag2 = "r_SDSS"
+        #phot_color_mag1 = "g_SDSS"
+        #phot_color_mag2 = "r_SDSS"
 
-    return cat_filter, phot_mag, phot_color_mag1, phot_color_mag2
+    # no need for color term on the photometric calibration of a single filter exposure.
+    #return cat_filter, phot_mag, phot_color_mag1, phot_color_mag2
+    return cat_filter, phot_mag
 
 # astro (F Navarete)
 def goodman_wcs(header):
     """
-    Creates a first guess of the WCS using the telescope coordinates, the
-    CCDSUM (binning), position angle and plate scale.
-    Parameters
-    ----------
-        data : numpy.ndarray
-            2D array with the data.
-        header : astropy.io.fits.Header
-            Primary Header to be updated.
-    Returns
-    -------
-        header : astropy.io.fits.Header
-            Primary Header with updated WCS information.
+      Creates a first guess of the WCS using the telescope coordinates, the
+      CCDSUM (binning), position angle and plate scale.
+      Parameters
+      ----------
+        header (astropy.io.fits.Header): Primary Header to be updated.
+      Returns
+      -------
+        header (astropy.io.fits.Header): Primary Header with updated WCS information.
     """
 
     if 'EQUINOX' not in header:
@@ -217,7 +267,14 @@ def goodman_wcs(header):
 # (F Navarete)
 def mask_fov(image, binning):
     """
-        Mask out the edges of the FOV of the Goodman images. requires the binning as input
+      Mask out the edges of the FOV of the Goodman images.
+      Parameters
+      ----------
+        image    (numpy.ndarray): Image from fits file.
+        binning            (int): binning of the data (1, 2, 3...) from get_info()
+      Returns
+      -------
+        mask_fov (numpy.ndarray): Boolean mask with the same dimension as 'image' (1/0 for good/masked pixels, respectively)
     """
     # define center of the FOV for binning 1, 2, and 3 
     if binning == 1:
@@ -242,31 +299,40 @@ def mask_fov(image, binning):
 # (F Navarete)
 def bpm_mask(image, saturation, binning):
     """
-        create bad pixel mask.
-        avoid saturated sources and pixels outside the circular FOV.
+      Creates a complete bad pixel mask, masking out saturated sources, cosmic rays and pixels outside the circular FOV.
+      Mask out the edges of the FOV of the Goodman images.
+      Parameters
+      ----------
+        image    (numpy.ndarray): Image from fits file.
+        saturation         (int): Saturation threshold from get_saturation()
+        binning            (int): binning of the data (1, 2, 3...) from get_info()
+      Returns
+      -------
+        mask_fov (numpy.ndarray): Boolean mask with the same dimension as 'image' (1/0 for good/masked pixels, respectively)
     """
 
-    # Create mask of bad pixels
-    mask = image > saturation # Rough saturation level
+    # Masks out saturated pixels
+    mask = image > saturation
 
-    # Cosmics
+    # Identify and masks out cosmic rays
     cmask, cimage = astroscrappy.detect_cosmics(image, mask, verbose=False)
     mask |= cmask
 
     # mask out edge of the fov
-    mask |= mask_fov(image, binning)     # gtools
+    mask |= mask_fov(image, binning)
 
     return mask
 
 # (STDPipe)
 def spherical_distance(ra1, dec1, ra2, dec2):
-    """Spherical distance.
+    """
+      Evaluates the spherical distance between two sets of coordinates.
 
-    :param ra1: First point or set of points RA
-    :param dec1: First point or set of points Dec
-    :param ra2: Second point or set of points RA
-    :param dec2: Second point or set of points Dec
-    :returns: Spherical distance in degrees
+        :param ra1: First point or set of points RA
+        :param dec1: First point or set of points Dec
+        :param ra2: Second point or set of points RA
+        :param dec2: Second point or set of points Dec
+        :returns: Spherical distance in degrees
 
     """
 
@@ -282,16 +348,17 @@ def spherical_distance(ra1, dec1, ra2, dec2):
 
 # (STDPipe)
 def spherical_match(ra1, dec1, ra2, dec2, sr=1 / 3600):
-    """Positional match on the sphere for two lists of coordinates.
+    """
+      Positional match on the sphere for two lists of coordinates.
 
-    Aimed to be a direct replacement for :func:`esutil.htm.HTM.match` method with :code:`maxmatch=0`.
+      Aimed to be a direct replacement for :func:`esutil.htm.HTM.match` method with :code:`maxmatch=0`.
 
-    :param ra1: First set of points RA
-    :param dec1: First set of points Dec
-    :param ra2: Second set of points RA
-    :param dec2: Second set of points Dec
-    :param sr: Maximal acceptable pair distance to be considered a match, in degrees
-    :returns: Two parallel sets of indices corresponding to matches from first and second lists, along with the pairwise distances in degrees
+        :param ra1: First set of points RA
+        :param dec1: First set of points Dec
+        :param ra2: Second set of points RA
+        :param dec2: Second set of points Dec
+        :param sr: Maximal acceptable pair distance to be considered a match, in degrees
+        :returns: Two parallel sets of indices corresponding to matches from first and second lists, along with the pairwise distances in degrees
 
     """
 
@@ -312,8 +379,8 @@ def spherical_match(ra1, dec1, ra2, dec2, sr=1 / 3600):
 # astrometry (STDPipe)
 def get_frame_center(filename=None, header=None, wcs=None, width=None, height=None, shape=None):
     """
-    Returns image center RA, Dec, and radius in degrees.
-    Accepts either filename, or FITS header, or WCS structure
+      Returns image center RA, Dec, and radius in degrees.
+      Accepts either filename, or FITS header, or WCS structure
     """
     if not wcs:
         if header:
@@ -705,6 +772,17 @@ def make_kernel(r0=1.0, ext=1.0):
 
 # phot (F Navarete)
 def dq_results(dq_obj):
+    """
+      Reads output from get_objects_sextractor() and evaluates Data Quality results.
+
+        dq_obj (astropy.table.Table): output from get_objects_sextractor()
+
+      Returns:
+        fwhm       (float): median FWHM of the sources (in pixels)
+        fwhm_error (float): median absolute error of the FWHM values (in pixels)
+        ell        (float): median ellipticity of the sources
+        ell_error  (float): median absolute error of the ellipticity values
+    """
 
     # get FWHM from detections (using median and median absolute deviation as error)
     fwhm = np.median(dq_obj['fwhm'])
@@ -720,8 +798,6 @@ def dq_results(dq_obj):
 
 
     return fwhm, fwhm_error, ell, ell_error
-
-
 
 # Utils (STDPipe)
 def file_write(filename, contents=None, append=False):
@@ -750,46 +826,19 @@ def table_get(table, colname, default=0):
         # Broadcast scalar to proper length
         return default * np.ones(len(table), dtype=int)
 
-# utils (F Navarete)
-def dict_to_Table(m):
-    """ Function to convert the output from calibrate_photometry from dict to astropy Table """
-    keys = list(m.keys())
-    nrows = len(m[keys[0]])
-    ncols = len(m)
-    table = []
-    tkeys = []
-    dkeys = []
-    dicti = []
-    for i in range(ncols):
-        try: len_i = len(m[keys[i]])
-        except: len_i = 1
-
-        if len_i == nrows:
-            table.append(m[keys[i]])
-            tkeys.append(keys[i])
-        else:
-            if len_i == 1 and ( isinstance(m[keys[i]],float) or isinstance(m[keys[i]],int) ):
-                dkeys.append(keys[i])
-                dicti.append(m[keys[i]])
-
-    t = Table(table, names=tkeys)
-    return t
-
 # utils (STDPipe)
-def get_obs_time(
-    header=None, filename=None, string=None, get_datetime=False, verbose=False
-):
+def get_obs_time(header=None, filename=None, string=None, get_datetime=False, verbose=False):
     """
-    Extract date and time of observations from FITS headers of common formats, or from a string.
+      Extract date and time of observations from FITS headers of common formats, or from a string.
 
-    Will try various FITS keywords that may contain the time information - `DATE_OBS`, `DATE`, `TIME_OBS`, `UT`, 'MJD', 'JD'.
+      Will try various FITS keywords that may contain the time information - `DATE_OBS`, `DATE`, `TIME_OBS`, `UT`, 'MJD', 'JD'.
 
-    :param header: FITS header containing the information on time of observations
-    :param filename: If `header` is not set, the FITS header will be loaded from the file with this name
-    :param string: If provided, the time will be parsed from the string instead of FITS header
-    :param get_datetime: Whether to return the time as a standard Python :class:`datetime.datetime` object instead of Astropy Time
-    :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
-    :returns: :class:`astropy.time.Time` object corresponding to the time of observations, or a :class:`datetime.datetime` object if :code:`get_datetime=True`
+        :param header: FITS header containing the information on time of observations
+        :param filename: If `header` is not set, the FITS header will be loaded from the file with this name
+        :param string: If provided, the time will be parsed from the string instead of FITS header
+        :param get_datetime: Whether to return the time as a standard Python :class:`datetime.datetime` object instead of Astropy Time
+        :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
+        :returns: :class:`astropy.time.Time` object corresponding to the time of observations, or a :class:`datetime.datetime` object if :code:`get_datetime=True`
 
     """
 
@@ -863,8 +912,8 @@ def get_obs_time(
 # Utils (STDPipe)
 def format_astromatic_opts(opts):
     """
-    Auxiliary function to format dictionary of options into Astromatic compatible command-line string.
-    Booleans are converted to Y/N, arrays to comma separated lists, strings are quoted when necessary
+      Auxiliary function to format dictionary of options into Astromatic compatible command-line string.
+      Booleans are converted to Y/N, arrays to comma separated lists, strings are quoted when necessary
     """
     result = []
 
@@ -888,9 +937,9 @@ def format_astromatic_opts(opts):
     return result
 
 # plots (STDPipe)
-def imgshow(image, wcs=None, qq=(0.01,0.99), cmap='Blues_r', px=None, py=None, plot_wcs=False, pmarker='r.', psize=2, title=None, figsize=None, show_grid=False, output=None):
+def imgshow(image, wcs=None, qq=(0.01,0.99), cmap='Blues_r', px=None, py=None, plot_wcs=False, pmarker='r.', psize=2, title=None, figsize=None, show_grid=False, output=None, dpi=300):
     """
-    Wrapper for matplotlib imshow, can plot datapoints and use the available WCS.    
+      Wrapper for matplotlib imshow, can plot datapoints and use the available WCS.    
     """
     if figsize is None:
         plt.figure()
@@ -926,7 +975,7 @@ def imgshow(image, wcs=None, qq=(0.01,0.99), cmap='Blues_r', px=None, py=None, p
     plt.title(title)
     plt.tight_layout()
     if output is not None:
-        plt.savefig(output)
+        plt.savefig(output, dpi=dpi)
 
 # plots (STDPipe)
 def colorbar(obj=None, ax=None, size="5%", pad=0.1):
@@ -1020,9 +1069,7 @@ def binned_map(
 
 
 # plots (STDPipe)
-def plot_photometric_match(
-    m, ax=None, mode='mag', show_masked=True, show_final=True, **kwargs
-):
+def plot_photometric_match(m, ax=None, mode='mag', show_masked=True, show_final=True, cmag_limits=None, **kwargs):
     """Convenience plotting routine for photometric match results.
 
     It plots various representations of the photometric match results returned by :func:`stdpipe.photometry.match` or :func:`stdpipe.pipeline.calibrate_photometry`, depending on the `mode` parameter:
@@ -1052,91 +1099,44 @@ def plot_photometric_match(
     # Textual representation of the photometric model
     model_str = 'Instr = %s' % m.get('cat_col_mag', 'Cat')
 
-    if (
-        'cat_col_mag1' in m.keys()
-        and 'cat_col_mag2' in m.keys()
-        and 'color_term' in m.keys()
-        and m['color_term'] is not None
-    ):
+    if ( 'cat_col_mag1' in m.keys() and 'cat_col_mag2' in m.keys() and 'color_term' in m.keys() and m['color_term'] is not None ):
         sign = '-' if m['color_term'] > 0 else '+'
-        model_str += ' %s %.2f (%s - %s)' % (
-            sign,
-            np.abs(m['color_term']),
-            m['cat_col_mag1'],
-            m['cat_col_mag2'],
-        )
+        model_str += ' %s %.2f (%s - %s)' % (sign, np.abs(m['color_term']), m['cat_col_mag1'], m['cat_col_mag2'])
 
     model_str += ' + ZP'
 
     if mode == 'mag':
-        ax.errorbar(
-            m['cmag'][m['idx0']],
-            (m['zero_model'] - m['zero'])[m['idx0']],
-            m['zero_err'][m['idx0']],
-            fmt='.',
-            alpha=0.3,
-        )
-        if show_final:
-            ax.plot(
-                m['cmag'][m['idx']],
-                (m['zero_model'] - m['zero'])[m['idx']],
-                '.',
-                alpha=1.0,
-                color='red',
-                label='Final fit',
-            )
+        ax.errorbar( m['cmag'][m['idx0']],  (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot(
-                m['cmag'][~m['idx0']],
-                (m['zero_model'] - m['zero'])[~m['idx0']],
-                'x',
-                alpha=1.0,
-                color='orange',
-                label='Masked',
-            )
+            ax.plot( m['cmag'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+        if show_final:
+            ax.plot( m['cmag'][m['idx']],   (m['zero_model'] - m['zero'])[m['idx']],   '.', alpha=1.0, color='red', label='Final fit', zorder=10)
 
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.legend()
         ax.grid(alpha=0.2)
 
-        ax.set_xlabel(
-            'Catalogue %s magnitude'
-            % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else '')
-        )
+        ax.set_xlabel('Catalogue %s magnitude' % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else '') )
         ax.set_ylabel('Instrumental - Model')
-
-        ax.set_title(
-            '%d of %d unmasked stars used in final fit'
-            % (np.sum(m['idx']), np.sum(m['idx0']))
-        )
-
+        ax.set_title('%d of %d unmasked stars used in final fit' % (np.sum(m['idx']), np.sum(m['idx0'])))
         ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
+        # limit the plot to a limiting range for catalog magnitudes
+        if cmag_limits is not None:
+            x = m['cmag'][m['idx0']].value
+            y = (m['zero_model'] - m['zero'])[m['idx0']].value
+            idx = ( x > cmag_limits[0] ) * ( x < cmag_limits[1] )
+            ylim0=(np.min(y[idx]),np.max(y[idx]))
+            dy = ylim0[1] - ylim0[0]
+            ylim = (ylim0[0]-0.05*dy,ylim0[1]+0.05*dy)
+            ax.set_xlim(cmag_limits)
+            ax.set_ylim(ylim)
 
     elif mode == 'normed':
-        ax.plot(
-            m['cmag'][m['idx0']],
-            ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx0']],
-            '.',
-            alpha=0.3,
-        )
-        if show_final:
-            ax.plot(
-                m['cmag'][m['idx']],
-                ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx']],
-                '.',
-                alpha=1.0,
-                color='red',
-                label='Final fit',
-            )
+        ax.plot( m['cmag'][m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx0']], '.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot(
-                m['cmag'][~m['idx0']],
-                ((m['zero_model'] - m['zero']) / m['zero_err'])[~m['idx0']],
-                'x',
-                alpha=1.0,
-                color='orange',
-                label='Masked',
-            )
+            ax.plot( m['cmag'][~m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+        if show_final:
+            ax.plot( m['cmag'][m['idx']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
 
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.axhline(-3, ls=':', color='black', alpha=0.3)
@@ -1144,124 +1144,60 @@ def plot_photometric_match(
         ax.legend()
         ax.grid(alpha=0.2)
 
-        ax.set_xlabel(
-            'Catalogue %s magnitude'
-            % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else '')
-        )
+        ax.set_xlabel('Catalogue %s magnitude'% (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else '') )
         ax.set_ylabel('(Instrumental - Model) / Error')
-
-        ax.set_title(
-            '%d of %d unmasked stars used in final fit'
-            % (np.sum(m['idx']), np.sum(m['idx0']))
-        )
-
+        ax.set_title('%d of %d unmasked stars used in final fit' % (np.sum(m['idx']), np.sum(m['idx0'])))
         ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
 
     elif mode == 'color':
-        ax.errorbar(
-            m['color'][m['idx0']],
-            (m['zero_model'] - m['zero'])[m['idx0']],
-            m['zero_err'][m['idx0']],
-            fmt='.',
-            alpha=0.3,
-        )
-        if show_final:
-            ax.plot(
-                m['color'][m['idx']],
-                (m['zero_model'] - m['zero'])[m['idx']],
-                '.',
-                alpha=1.0,
-                color='red',
-                label='Final fit',
-            )
+        ax.errorbar( m['color'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot(
-                m['color'][~m['idx0']],
-                (m['zero_model'] - m['zero'])[~m['idx0']],
-                'x',
-                alpha=1.0,
-                color='orange',
-                label='Masked',
-            )
+            ax.plot( m['color'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+        if show_final:
+            ax.plot( m['color'][m['idx']], (m['zero_model'] - m['zero'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
 
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.legend()
         ax.grid(alpha=0.2)
-
-        ax.set_xlabel(
-            'Catalogue %s color'
-            % (
-                m['cat_col_mag1'] + '-' + m['cat_col_mag2']
-                if 'cat_col_mag1' in m.keys()
-                else ''
-            )
-        )
+        ax.set_xlabel('Catalogue %s color' % ( m['cat_col_mag1'] + '-' + m['cat_col_mag2'] if 'cat_col_mag1' in m.keys() else ''))
         ax.set_ylabel('Instrumental - Model')
-
         ax.set_title('color term = %.2f' % (m['color_term'] or 0.0))
-
         ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
 
     elif mode == 'zero':
         if show_final:
-            binned_map(
-                m['ox'][m['idx']],
-                m['oy'][m['idx']],
-                m['zero'][m['idx']],
-                ax=ax,
-                **kwargs,
-            )
+            binned_map(m['ox'][m['idx']], m['oy'][m['idx']], m['zero'][m['idx']], ax=ax, **kwargs)
         else:
-            binned_map(
-                m['ox'][m['idx0']],
-                m['oy'][m['idx0']],
-                m['zero'][m['idx0']],
-                ax=ax,
-                **kwargs,
-            )
+            binned_map(m['ox'][m['idx0']], m['oy'][m['idx0']], m['zero'][m['idx0']], ax=ax, **kwargs)
         ax.set_title('Zero point')
 
     elif mode == 'model':
-        binned_map(
-            m['ox'][m['idx0']],
-            m['oy'][m['idx0']],
-            m['zero_model'][m['idx0']],
-            ax=ax,
-            **kwargs,
-        )
+        binned_map(m['ox'][m['idx0']], m['oy'][m['idx0']], m['zero_model'][m['idx0']], ax=ax, **kwargs,)
         ax.set_title('Model')
 
     elif mode == 'residuals':
-        binned_map(
-            m['ox'][m['idx0']],
-            m['oy'][m['idx0']],
-            (m['zero_model'] - m['zero'])[m['idx0']],
-            ax=ax,
-            **kwargs,
-        )
+        binned_map(m['ox'][m['idx0']], m['oy'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], ax=ax, **kwargs)
         ax.set_title('Instrumental - model')
 
     elif mode == 'dist':
-        binned_map(
-            m['ox'][m['idx']],
-            m['oy'][m['idx']],
-            m['dist'][m['idx']] * 3600,
-            ax=ax,
-            **kwargs,
-        )
-        ax.set_title(
-            '%d stars: mean displacement %.1f arcsec, median %.1f arcsec'
-            % (
-                np.sum(m['idx']),
-                np.mean(m['dist'][m['idx']] * 3600),
-                np.median(m['dist'][m['idx']] * 3600),
-            )
-        )
+        binned_map( m['ox'][m['idx']], m['oy'][m['idx']], m['dist'][m['idx']] * 3600, ax=ax, **kwargs)
+        ax.set_title('%d stars: mean displacement %.1f arcsec, median %.1f arcsec' % (np.sum(m['idx']),np.mean(m['dist'][m['idx']] * 3600),np.median(m['dist'][m['idx']] * 3600)))
 
     return ax
 
 # plots (F Navarete)
-def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,0.98)):
+def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,0.98), output=None, dpi=300):
+    """
+      Simple function to plot the image and overlay the SExtractor detections using the calibrated magnitudes as color scale.
+
+      image            (numpy.ndarray): image from fits file to be plotted
+      phot_table (astropy.table.Table): output from phot_table()
+      wcs            (astropy.wcs.WCS): WCS of the input image
+      column_scale               (str): column name from 'phot_table' to be used as the color scale of the plot
+      qq                  (float list): two-element list contaning the quantiles for ploting the image [default: (0.02,0.98)]
+      output                     (str): full path of the filename for saving the plot
+      dpi                        (int): dots-per-inches resolution of the plot [default: 300]
+    """
     # plots photometric calibrated sources over the image
     from matplotlib.patches import Ellipse
     plt.figure()
@@ -1280,7 +1216,7 @@ def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,
     # add ellipses to the plot:
     for row in phot_table:
         e = Ellipse( ( row['x'], row['y'] ), width=2*row['a'], height=2*row['b'], angle=row['theta'],
-                     edgecolor=cmap(norm(row[column_scale])), facecolor='none', linewidth=1, transform=ax.get_transform('pixel'))
+                     edgecolor=cmap(norm(row[column_scale])), facecolor='none', linewidth=0.5, alpha=0.55, transform=ax.get_transform('pixel'))
         ax.add_patch(e)
 
     # add color bar
@@ -1290,55 +1226,22 @@ def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,
     cbar.set_label(column_scale)
     cbar.ax.invert_yaxis()
     plt.tight_layout()
+    if output is not None:
+        plt.savefig(output, dpi=dpi)
 
 # cat (STDPipe)
 catalogs = {
-    'ps1': {'vizier': 'II/349/ps1', 'name': 'PanSTARRS DR1'},
-    'gaiadr2': {'vizier': 'I/345/gaia2', 'name': 'Gaia DR2', 'extra': ['E(BR/RP)']},
-    'gaiaedr3': {'vizier': 'I/350/gaiaedr3', 'name': 'Gaia EDR3'},
-    'gaiadr3syn': {
-        'vizier': 'I/360/syntphot',
-        'name': 'Gaia DR3 synthetic photometry',
-        'extra': ['**', '_RAJ2000', '_DEJ2000'],
-    },
-    'usnob1': {'vizier': 'I/284/out', 'name': 'USNO-B1'},
-    'gsc': {'vizier': 'I/271/out', 'name': 'GSC 2.2'},
-    'skymapper': {
-        'vizier': 'II/358/smss',
-        'name': 'SkyMapper DR1.1',
-        'extra': [
-            '_RAJ2000',
-            '_DEJ2000',
-            'e_uPSF',
-            'e_vPSF',
-            'e_gPSF',
-            'e_rPSF',
-            'e_iPSF',
-            'e_zPSF',
-        ],
-    },
-    'vsx': {'vizier': 'B/vsx/vsx', 'name': 'AAVSO VSX'},
-    'apass': {'vizier': 'II/336/apass9', 'name': 'APASS DR9'},
-    'sdss': {
-        'vizier': 'V/147/sdss12',
-        'name': 'SDSS DR12',
-        'extra': ['_RAJ2000', '_DEJ2000'],
-    },
-    'atlas': {
-        'vizier': 'J/ApJ/867/105/refcat2',
-        'name': 'ATLAS-REFCAT2',
-        'extra': [
-            '_RAJ2000',
-            '_DEJ2000',
-            'e_Gmag',
-            'e_gmag',
-            'e_rmag',
-            'e_imag',
-            'e_zmag',
-            'e_Jmag',
-            'e_Kmag',
-        ],
-    },
+    'ps1':        {'vizier': 'II/349/ps1', 'name': 'PanSTARRS DR1'},
+    'gaiadr2':    {'vizier': 'I/345/gaia2', 'name': 'Gaia DR2', 'extra': ['E(BR/RP)']},
+    'gaiaedr3':   {'vizier': 'I/350/gaiaedr3', 'name': 'Gaia EDR3'},
+    'gaiadr3syn': {'vizier': 'I/360/syntphot', 'name': 'Gaia DR3 synthetic photometry', 'extra': ['**', '_RAJ2000', '_DEJ2000']},
+    'usnob1':     {'vizier': 'I/284/out', 'name': 'USNO-B1'},
+    'gsc':        {'vizier': 'I/271/out', 'name': 'GSC 2.2'},
+    'skymapper':  {'vizier': 'II/358/smss', 'name': 'SkyMapper DR1.1', 'extra': ['_RAJ2000', '_DEJ2000', 'e_uPSF', 'e_vPSF', 'e_gPSF', 'e_rPSF', 'e_iPSF', 'e_zPSF']},
+    'vsx':        {'vizier': 'B/vsx/vsx', 'name': 'AAVSO VSX'},
+    'apass':      {'vizier': 'II/336/apass9', 'name': 'APASS DR9'},
+    'sdss':       {'vizier': 'V/147/sdss12','name': 'SDSS DR12','extra': ['_RAJ2000', '_DEJ2000']},
+    'atlas':      {'vizier': 'J/ApJ/867/105/refcat2', 'name': 'ATLAS-REFCAT2', 'extra': ['_RAJ2000','_DEJ2000','e_Gmag','e_gmag','e_rmag','e_imag','e_zmag','e_Jmag','e_Kmag']}
 }
 
 # cat (STDPipe)
@@ -2451,9 +2354,12 @@ def phot_table(m, pixscale=None, columns=None):
 
     return m_table
 
-# phot (STDPipe)
+# phot (F Navarete)
 def phot_zeropoint(m, model=False):
-    # estimate the median photometric zero point of the field
+    """
+      Reads the output from calibrate_photometry() and returns the photometric zero point.
+    """
+    # estimate the median photometric zero point of the image
     med_zp   = np.nanmedian(m['zero'])
     med_ezp  = np.nanmedian(m['zero_err'])
     if model:

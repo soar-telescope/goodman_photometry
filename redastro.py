@@ -17,28 +17,19 @@ warnings.simplefilter(action='ignore', category=VerifyWarning)
 plt.rc('image', origin='lower', cmap='Blues_r')
 
 ###########################################################
-#filename = './0277_wd1_r_5_wcs.fits'
-#filename = './0274_wd1_r_025_wcs.fits'
-#filename = './0280_wd1_r_60_wcs.fits'
-#filename = './processed/cfzt_0277_wd1_r_5_wcs.fits'
-#filename = './new_tests/0061_N24A-383097.fits'
-#filename = './new_tests/0177_EP240305a_z.fits'
-#filename = './new_tests/0277_wd1_r_5.fits'
-#filename = './new_tests/cfzst_0456_VFTS682_r.fits'
-#filename = './new_tests/cfzt_0277_wd1_r_5.fits'
-#filename = './new_tests/0175_EP240305a_r.fits'
-#filename = './new_tests/0178_EP240305a_g.fits'
-#filename = './new_tests/0280_wd1_r_60.fits'
-#filename = './new_tests/cfzst_0463_VFTS682_ii.fits'
-#filename = './new_tests/cfzt_0280_wd1_r_60.fits'
-#filename = './new_tests/0176_EP240305a_i.fits'
-#filename = './new_tests/0274_wd1_r_025.fits'
-#filename = './new_tests/cfzst_0450_VFTS682_g.fits'
 #
-filename = './tests_last/0274_wd1_r_025.fits'
-filename = './tests_last/cfzt_0274_wd1_r_025.fits'
+# User input parameters
+#
 
+# full path of the input fits file (might turn into a callable function later: 'redastro image.fits')
+#filename = './tests_last/cfzt_0277_wd1_r_5.fits'
+#filename = './tests_last/cfzt_0280_wd1_r_60.fits'
+filename = './tests_last/0277_wd1_r_5.fits'
+
+########################
 # 
+# Default configurations
+#
 print_messages          = True  # print messages on screen during execution
 save_intermediary_files = False # save intermediary fits files
 save_scamp_plots        = True  # save scamp astrometric plots as png files
@@ -50,6 +41,8 @@ cat_magthresh = 17
 
 scamp_flag = 1 # set maximum FLAG for performing astrometry using SCAMP, set to None for using all detections
 
+########################
+# 
 # START THE CODE ----------
 
 # set start of the code
@@ -194,6 +187,7 @@ if print_messages:
     print('------------------------')
     print('')
 
+# print results on logfile
 gtools.log_message(logfile,"Data Quality outputs", print_time=True)
 gtools.log_message(logfile,"Nobj for DQ: {}/{}".format(len(dq_obj),len(obj)), print_time=True)
 gtools.log_message(logfile,"Median FWHM: {:.2f}+/-{:.2f} pixels".format(fwhm, fwhm_error), print_time=True)
@@ -209,7 +203,8 @@ if print_messages:
     print('Performing astrometry with SCAMP using',cat_name)
 
 # retrieve the filters to be used on the external catalog based on the Goodman filter information
-cat_filter, _, _, _ = gtools.filter_sets(fname)
+#cat_filter, _, _, _ = gtools.filter_sets(fname)
+cat_filter, _ = gtools.filter_sets(fname)
 
 # log
 gtools.log_message(logfile,"Querying Vizier for {} catalog.".format(cat_name), print_time=True)
@@ -265,7 +260,7 @@ if wcs is None or not wcs.is_celestial:
     print('WCS refinement failed. Using initial WCS from header information.')
     gtools.log_message(logfile,"WCS refinement failed. Using initial WCS from header information.", print_time=True)
     header_out.update(wcs_init.to_header(relax=True))
-    header_out.append(('ASTR_SOL',  "Header information",               'Astrometry solution'),                                                          end=True)
+    header_out.append(('GSP_ASOL',  "Header information",               'Astrometry solution mode'),                                                          end=True)
 
 else:
     print("WCS refinement was successful.")
@@ -274,13 +269,13 @@ else:
 
     header_out.update(wcs.to_header(relax=True))
     # Astrometric calibration setup
-    header_out.append(('ASTR_SOL',  "SCAMP",                            'Astrometry solution'),                                                          end=True)
-    header_out.append(('ASTRCAT',  cat_name.strip(),                    'Catalog name used for astrometric calibration'),                                end=True)
-    header_out.append(('ASTRCFIL', cat_filter.strip(),                  'Filter name used for retrieving the catalog list for astrometric calibration'), end=True)
-    header_out.append(('ASTRCMAG', float(cat_magthresh),                'Magnitude threshold for ASTRCFIL used for astrometric calibration'),            end=True)
+    header_out.append(('GSP_ASOL', "SCAMP",                             'Astrometry solution mode'),                                                          end=True)
+    header_out.append(('GSP_ACAT', cat_name.strip(),                    'Catalog name used for astrometric calibration'),                                end=True)
+    header_out.append(('GSP_AFIL', cat_filter.strip(),                  'Filter name used for retrieving the catalog list for astrometric calibration'), end=True)
+    header_out.append(('GSP_AMAG', float(cat_magthresh),                'Magnitude threshold for GSP_AFIL used for astrometric calibration'),            end=True)
     # results from photometric calibration
-    header_out.append(('ASTRXRMS', float(header_wcs['ASTRRMS1']*3600.), 'Astrometric rms error on the x-axis (in arcseconds)'),                          end=True)
-    header_out.append(('ASTRYRMS', float(header_wcs['ASTRRMS2']*3600.), 'Astrometric rms error on the y-axis (in arcseconds)'),                          end=True)
+    header_out.append(('GSP_XRMS', float(header_wcs['ASTRRMS1']*3600.), 'Astrometric rms error on the x-axis (in arcseconds)'),                          end=True)
+    header_out.append(('GSP_YRMS', float(header_wcs['ASTRRMS2']*3600.), 'Astrometric rms error on the y-axis (in arcseconds)'),                          end=True)
 
 ##############################
 #
@@ -290,7 +285,6 @@ hdu  = fits.PrimaryHDU(data=image, header=header_out)
 hdul = fits.HDUList([hdu])
 hdul.writeto(filename.replace(".fits","_wcs.fits"),overwrite=True)
 gtools.log_message(logfile,'FITS file saved as {}'.format(filename.replace(".fits","_wcs.fits")), print_time=True)
-
 
 # set start of the code
 end = datetime.datetime.now()
