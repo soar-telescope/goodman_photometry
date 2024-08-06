@@ -12,6 +12,7 @@ from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io import fits as fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.visualization import PercentileInterval
 from astropy.wcs import WCS
 from astroquery.vizier import Vizier
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -27,7 +28,7 @@ def log_message(file,message, init=False, print_time=False):
         message     (str): message to be appended to the file.
         init       (bool): if True, initialize a new file.
         print_time (bool): if True, will print a timestamp before the message.
-    
+
     """
     if init:
         with open(file,'w') as f:
@@ -40,13 +41,14 @@ def log_message(file,message, init=False, print_time=False):
         with open(file,'a') as f:
             f.write(message + '\n')
 
+
 # (F Navarete)
 def get_info(header):
     """
       reads a fits header and returns specific keywords used during the execution of the codes.
-        
+
         header (astropy.io.fits.Header): FITS header.
-    
+
       returns:
         fname          (str): filter name
         binning        (int): binning factor (single element). For imaging mode, the full binning information should be 'binning'x'binning'
@@ -55,7 +57,7 @@ def get_info(header):
         rdnoise      (float): read noise (e-)
         satur_thresh (float): saturation threshold based on the readout mode (in ADU)
         exptime      (float): exposure time (in sec)
-    
+
     """
 
     # check if observations are done in imaging mode. if not, exit the code
@@ -69,7 +71,7 @@ def get_info(header):
     fname = fname1 if fname1 != "NO_FILTER" else fname2
 
     # get binning information
-    binning = np.array([int(b) for b in header['CCDSUM'].split(' ')])[0]
+    serial_binning, parallel_binning = [int(b) for b in header['CCDSUM'].split()]
     time  = get_obs_time(header, verbose=False)
 
     gain = header.get('GAIN')
@@ -78,10 +80,11 @@ def get_info(header):
 
     exptime = header.get('EXPTIME')
 
-    return fname, binning, time, gain, rdnoise, satur_thresh, exptime
+    return fname, serial_binning, parallel_binning, time, gain, rdnoise, satur_thresh, exptime
+
 
 # (F Navarete)
-def get_saturation(gain,rdnoise):
+def get_saturation(gain, rdnoise):
     """
       Simple function to estimate the saturation threshold based on the readout mode.
 
@@ -90,7 +93,7 @@ def get_saturation(gain,rdnoise):
 
       returns:
         satur_thresh (float): saturation threshold based on the readout mode (in ADU)
-    
+
     """
     if   gain == 1.54 and rdnoise == 3.45: satur_thresh = 50000 # 100kHzATTN3
     elif gain == 3.48 and rdnoise == 5.88: satur_thresh = 25000 # 100kHzATTN2
@@ -98,9 +101,8 @@ def get_saturation(gain,rdnoise):
     elif gain == 3.87 and rdnoise == 7.05: satur_thresh = 25000 # 344kHzATTN0
     elif gain == 1.47 and rdnoise == 5.27: satur_thresh = 50000 # 750kHzATTN2
     elif gain == 3.77 and rdnoise == 8.99: satur_thresh = 25000 # 750kHzATTN0
-    else: satur_thresh = 50000    
+    else: satur_thresh = 50000
     return satur_thresh
-
 
 
 # (F Navarete)
@@ -108,7 +110,7 @@ def check_wavmode(wavmode):
     """
       Simple function to check whether WAVMODE is IMAGING or not.
 
-        wavmode (str): Goodman header's keyword. Should be IMAGING or SPECTROSCOPY. 
+        wavmode (str): Goodman header's keyword. Should be IMAGING or SPECTROSCOPY.
 
       returns:
         if wavmode is not IMAGING, halts the code.
@@ -125,7 +127,7 @@ def check_wcs(header):
       Simple function to check whether the header has a WCS solution or not.
 
         header (astropy.io.fits.Header): FITS header.
-    
+
       returns:
         if no WCS is present, halts the code.
 
@@ -144,7 +146,7 @@ def check_phot(m):
       Simple function to check whether a dictionary is None or not.
 
         m (dict): output from calibrate_photometry()
-    
+
       returns:
         if 'm' is None, halts the code.
 
@@ -153,58 +155,58 @@ def check_phot(m):
         sys.exit("Impossible to retrieve photometric results.")
 
 # (F Navarete)
-def filter_sets(fname):
+def filter_sets(filter_name):
     """
       Simple function to define which set of filters will be used based on the Goodman filter in usage.
 
-        fname (str): Goodman filter name (from header's FILTER/FILTER2 keywords)
+        filter_name (str): Goodman filter name (from header's FILTER/FILTER2 keywords)
 
       returns:
-        cat_filter (str): Gaia filter to be retrieved
-        phot_mag   (str): will convert the Gaia filter magnitude to the following filter
-    
-      TODO: Right now, the function works for SDSS filters only. 
-            Needs to add Bessel UBVRI, Johnson UBV, stromgren ubvy, Kron-Cousins Rc. 
+        catalog_filter (str): Gaia filter to be retrieved
+        photometry_filter   (str): will convert the Gaia filter magnitude to the following filter
+
+      TODO: Right now, the function works for SDSS filters only.
+            Needs to add Bessel UBVRI, Johnson UBV, stromgren ubvy, Kron-Cousins Rc.
             Narrow band filters should deliver results in the same filter.
- 
+
     """
 
     # photometric filters for deriving the calibration (should be as close as possible as the filter in use.
     # available filters from GaiaDR2 are:
     # "Gmag,BPmag,RPmag (gaia system)
     # Bmag,Vmag,Rmag,Imag,gmag,rmag,g_SDSS,r_SDSS,i_SDSS"
-    if fname == "u-SDSS":
-        cat_filter = "BPmag"
-        phot_mag = "u_SDSS"
-        #phot_color_mag1 = "u_SDSS"
-        #phot_color_mag2 = "g_SDSS"
-    elif fname == "g-SDSS":
-        cat_filter = "BPmag"
-        phot_mag = "g_SDSS"
-        #phot_color_mag1 = "g_SDSS"
-        #phot_color_mag2 = "r_SDSS"
-    elif fname == "r-SDSS":
-        cat_filter = "Gmag"
-        phot_mag = "r_SDSS"
-        #phot_color_mag1 = "g_SDSS"
-        #phot_color_mag2 = "r_SDSS"
-    elif fname == "i-SDSS" or fname == "z-SDSS":
-        cat_filter = "Gmag"
-        phot_mag = "i_SDSS"
-        #phot_color_mag1 = "r_SDSS"
-        #phot_color_mag2 = "i_SDSS"
+    if filter_name == "u-SDSS":
+        catalog_filter = "BPmag"
+        photometry_filter = "u_SDSS"
+        # phot_color_mag1 = "u_SDSS"
+        # phot_color_mag2 = "g_SDSS"
+    elif filter_name == "g-SDSS":
+        catalog_filter = "BPmag"
+        photometry_filter = "g_SDSS"
+        # phot_color_mag1 = "g_SDSS"
+        # phot_color_mag2 = "r_SDSS"
+    elif filter_name == "r-SDSS":
+        catalog_filter = "Gmag"
+        photometry_filter = "r_SDSS"
+        # phot_color_mag1 = "g_SDSS"
+        # phot_color_mag2 = "r_SDSS"
+    elif filter_name == "i-SDSS" or filter_name == "z-SDSS":
+        catalog_filter = "Gmag"
+        photometry_filter = "i_SDSS"
+        # phot_color_mag1 = "r_SDSS"
+        # phot_color_mag2 = "i_SDSS"
     else:
         # for any other filter, use the GaiaDR2 G-band magnitudes
         # TODO: add transformation for the z-SDSS filter
         # TODO: add transformation for Bessel, stromgren
-        cat_filter = "Gmag"
-        phot_mag = "g_SDSS"
-        #phot_color_mag1 = "g_SDSS"
-        #phot_color_mag2 = "r_SDSS"
+        catalog_filter = "Gmag"
+        photometry_filter = "g_SDSS"
+        # phot_color_mag1 = "g_SDSS"
+        # phot_color_mag2 = "r_SDSS"
 
     # no need for color term on the photometric calibration of a single filter exposure.
     #return cat_filter, phot_mag, phot_color_mag1, phot_color_mag2
-    return cat_filter, phot_mag
+    return catalog_filter, photometry_filter
 
 # astro (F Navarete)
 def goodman_wcs(header):
@@ -224,44 +226,44 @@ def goodman_wcs(header):
 
     if 'EPOCH' not in header:
         header['EPOCH'] = 2000.
-        
+
     binning = np.array([int(b) for b in header['CCDSUM'].split(' ')])
-    
+
     header['PIXSCAL1'] =  -binning[0] * 0.15  # arcsec (for Swarp)
     header['PIXSCAL2'] =  +binning[1] * 0.15  # arcsec  (for Swarp)
 
     if abs(header['PIXSCAL1']) != abs(header['PIXSCAL2']):
         logger.warning('Pixel scales for X and Y do not mach.')
-        
+
     plate_scale = (abs(header['PIXSCAL1'])*u.arcsec).to('degree')
     p = plate_scale.to('degree').value
     w = wcs.WCS(naxis=2)
-    
+
     try:
         coordinates = SkyCoord(ra=header['RA'], dec=header['DEC'],
                                unit=(u.hourangle, u.deg))
-    
+
     except ValueError:
-    
+
         logger.error(
             '"RA" and "DEC" missing. Using "TELRA" and "TELDEC" instead.')
-   
+
         coordinates = SkyCoord(ra=header['TELRA'], dec=header['TELDEC'],
                                unit=(u.hourangle, u.deg))
-    
+
     ra  = coordinates.ra.to('degree').value
     dec = coordinates.dec.to('degree').value
-    
+
     w.wcs.crpix = [header['NAXIS2'] / 2, header['NAXIS1'] / 2]
-    w.wcs.cdelt = [+1.*p,+1.*p] #* binning 
+    w.wcs.cdelt = [+1.*p,+1.*p] #* binning
     w.wcs.crval = [ra, dec]
     w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-    
+
     wcs_header = w.to_header()
-    
+
     for key in wcs_header.keys():
         header[key] = wcs_header[key]
-    
+
     return header
 
 # (F Navarete)
@@ -276,7 +278,7 @@ def mask_fov(image, binning):
       -------
         mask_fov (numpy.ndarray): Boolean mask with the same dimension as 'image' (1/0 for good/masked pixels, respectively)
     """
-    # define center of the FOV for binning 1, 2, and 3 
+    # define center of the FOV for binning 1, 2, and 3
     if binning == 1:
         center_x, center_y, radius = 1520, 1570, 1550
     elif binning == 2:
@@ -500,7 +502,7 @@ def get_objects_sextractor(image,
         else tempfile.mkdtemp(prefix='sex', dir=_tmpdir)
     )
     obj = None
-    
+
     if mask is None:
         # Create minimal mask
         mask = ~np.isfinite(image)
@@ -939,7 +941,7 @@ def format_astromatic_opts(opts):
 # plots (STDPipe)
 def imgshow(image, wcs=None, qq=(0.01,0.99), cmap='Blues_r', px=None, py=None, plot_wcs=False, pmarker='r.', psize=2, title=None, figsize=None, show_grid=False, output=None, dpi=300):
     """
-      Wrapper for matplotlib imshow, can plot datapoints and use the available WCS.    
+      Wrapper for matplotlib imshow, can plot datapoints and use the available WCS.
     """
     if figsize is None:
         plt.figure()
@@ -952,15 +954,17 @@ def imgshow(image, wcs=None, qq=(0.01,0.99), cmap='Blues_r', px=None, py=None, p
     else:
         ax = plt.subplot()
     # define 1 and 99-th percentile for plotting the data
-    quant = np.nanquantile(image,qq)
-    if quant[0] < 0 :
-        quant[0] = 0
+
+    percentile = PercentileInterval(99.)
+    # quant = np.nanquantile(image,qq)
+    # if quant[0] < 0 :
+    #     quant[0] = 0
 
     # now plot
-    img = ax.imshow(image, origin='lower', vmin=quant[0], vmax=quant[1], interpolation='nearest', cmap=cmap)    # STDpipe
+    img = ax.imshow(image, origin='lower', clim=percentile.get_limits(), interpolation='nearest', cmap=cmap)    # STDpipe
     if show_grid:
         ax.grid(color='white', ls='--')
-    if wcs is not None: 
+    if wcs is not None:
         ax.set_xlabel('Right Ascension (J2000)')
         ax.set_ylabel('Declination (J2000)')
     # add colorbar
@@ -1028,7 +1032,7 @@ def binned_map(
     :param show_dots: Whether to overlay the positions of data points onto the plot
     :param range: Data range as [[xmin, xmax], [ymin, ymax]]
     :param ax: Matplotlib Axes object to be used for plotting, optional
-    :param \**kwargs: The rest of parameters will be directly passed to :func:`matplotlib.pyplot.imshow`
+    :param **kwargs: The rest of parameters will be directly passed to :func:`matplotlib.pyplot.imshow`
     :returns: None
 
     """
@@ -1089,7 +1093,7 @@ def plot_photometric_match(m, ax=None, mode='mag', show_masked=True, show_final=
     :param mode: plotting mode - one of `mag`, `color`, `zero`, `model`, `residuals`, or `dist`
     :param show_masked: Whether to show masked objects
     :param show_final: Whether to additionally highlight the objects used for the final fit, i.e. not rejected during iterative thresholding
-    :param \**kwargs: the rest of parameters will be directly passed to :func:`stdpipe.plots.binned_map` when applicable.
+    :param **kwargs: the rest of parameters will be directly passed to :func:`stdpipe.plots.binned_map` when applicable.
     :returns: None
 
     """
@@ -1401,14 +1405,14 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
         cat['g_SDSS'] = g - (+0.13518 -0.46245 * bp_rp -0.251710 * bp_rp ** 2 +0.021349 * bp_rp ** 3 )
 
         # (F Navarete)
-        # apply selection criteria for transforming to SDSS magnitudes       
-        # compute SDSS magnitudes only if sources are not saturated  
+        # apply selection criteria for transforming to SDSS magnitudes
+        # compute SDSS magnitudes only if sources are not saturated
         mask = ( bp > 4.0 ) * ( rp > 4.0 ) * ( g > 6.5 )
         # secondary masks for the SDSS filters
         mask_g = ( cat['g_SDSS'] > 15.0 ) * ( cat['g_SDSS'] > g + 1.4 * bp_rp - 1.37 )
         mask_r = ( cat['r_SDSS'] > 15.0 ) * ( cat['r_SDSS'] > g + 0.7 * bp_rp - 1.50 )
         mask_i = ( cat['i_SDSS'] > 15.0 )
-        # set to NaN all magnitudes that do not satisfy the photometric criteria        
+        # set to NaN all magnitudes that do not satisfy the photometric criteria
         cat['g_SDSS'][~(mask * mask_g)] = np.nan
         cat['r_SDSS'][~(mask * mask_r)] = np.nan
         cat['i_SDSS'][~(mask * mask_i)] = np.nan
@@ -1687,7 +1691,7 @@ def refine_wcs_scamp(
 
     if res == 0 and os.path.exists(hdrname) and os.path.exists(xmlname):
         log('SCAMP run successfully')
-        
+
         # xlsname contains the results from SCAMP
         diag = Table.read(xmlname, table_id=0)[0]
 
@@ -1824,10 +1828,10 @@ def clear_wcs(header,
                 is_delete = True
             if key in scamp_keywords:
                 is_delete = True
-            if re.match('^(A|B|AP|BP)_\d+_\d+$', key):
+            if re.match(r'^(A|B|AP|BP)_\d+_\d+$', key):
                 # SIP
                 is_delete = True
-            if re.match('^PV_?\d+_\d+$', key):
+            if re.match(r'^PV_?\d+_\d+$', key):
                 # PV
                 is_delete = True
             if key[0] == '_' and remove_underscored:
@@ -2035,11 +2039,11 @@ def match(
     if ecmag_thresh is not None:
         idx0 &= omag_err <= ecmag_thresh
         idx0 &= cmag_err <= ecmag_thresh
-    
+
     # FN make sure we are including well calibrated data from the catalogue
     if cmag_limits is not None:
         idx0 &= ( ( cmag >= np.min(cmag_limits) ) & ( cmag <= np.max(cmag_limits) ) )
-    
+
     if cat_color is not None and use_color:
         idx0 &= np.isfinite(ccolor)
     if cat_saturation is not None:
@@ -2201,8 +2205,8 @@ def calibrate_photometry(
     cat_col_mag2=None,
     cat_col_ra='RAJ2000',
     cat_col_dec='DEJ2000',
-    ecmag_thresh = None, # FN
-    cmag_limits = None,  # FN
+    ecmag_thresh=None, # FN
+    cmag_limits=None,  # FN
     update=True,
     verbose=False,
     **kwargs
@@ -2235,7 +2239,7 @@ def calibrate_photometry(
     :param cmag_limits: set magnitude range for the catalog magnitudes to avoid weird values ([8,22] should work for most of the cases)
     :param update: If True, `mag_calib` and `mag_calib_err` columns with calibrated magnitude (without color term) and its error will be added to the object table
     :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function
-    :param \**kwargs: The rest of keyword arguments will be directly passed to :func:`stdpipe.photometry.match`.
+    :param **kwargs: The rest of keyword arguments will be directly passed to :func:`stdpipe.photometry.match`.
     :returns: The dictionary with photometric results, as returned by :func:`stdpipe.photometry.match`.
 
     """
@@ -2301,7 +2305,7 @@ def calibrate_photometry(
 
         if update:
             obj['mag_calib'] = obj[obj_col_mag] + m['zero_fn'](obj['x'], obj['y'], obj['mag'])
-            obj['mag_calib_err'] = np.hypot( obj[obj_col_mag_err], 
+            obj['mag_calib_err'] = np.hypot( obj[obj_col_mag_err],
                                              m['zero_fn'](obj['x'], obj['y'], obj['mag'], get_err=True) )
     else:
         log('Photometric calibration failed')
@@ -2343,7 +2347,7 @@ def phot_table(m, pixscale=None, columns=None):
 
     if columns is not None:
         m_table = m_table[columns]
-    
+
     if pixscale is not None:
         # convert FWHM from pixel to arcseconds
         fwhm_index = m_table.colnames.index('fwhm')
