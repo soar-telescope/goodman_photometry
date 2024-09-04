@@ -2,7 +2,11 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime
+import warnings
+
+from astropy.io.fits.verify import VerifyWarning
 from astropy.io import fits
+from astropy.wcs import FITSFixedWarning
 
 from goodman_astro import (bpm_mask,
                            calibrate_photometry,
@@ -21,22 +25,20 @@ from goodman_astro import (bpm_mask,
                            phot_zeropoint)
 from goodman_astro import imgshow as plot_image
 
-# Disable some annoying warnings from astropy
-import warnings
-from astropy.wcs import FITSFixedWarning
-from astropy.io.fits.verify import VerifyWarning
+from utils import setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
 
-from utils import setup_logging
 
 setup_logging(debug=True)
 
 log = logging.getLogger(__name__)
 
+
 def get_photometry_args(args=None):
     pass
+
 
 class Photometry(object):
 
@@ -67,7 +69,7 @@ class Photometry(object):
         return self._data_quality
 
     @dq.setter
-    def dq(self, fwhm: float, fwhm_error: float, ellipticity: float, ellipticity_error:float):
+    def dq(self, fwhm: float, fwhm_error: float, ellipticity: float, ellipticity_error: float):
         if isinstance(fwhm, float):
             self._data_quality["fwhm"] = fwhm
         if isinstance(fwhm_error, float):
@@ -142,8 +144,13 @@ class Photometry(object):
         full_width_at_tenth_maximum_to_fwhm = 1.82
         aperture = np.round(full_width_at_tenth_maximum_to_fwhm * seeing / (pixel_scale * 3600.))
         log.info(f"SExtractor aperture radius: {aperture:.1f} pixels.")
-        self.sources = get_objects_sextractor(image=data, mask=mask, gain=gain, r0=2, aper=aperture,
-                                         thresh=1.0, wcs=wcs)
+        self.sources = get_objects_sextractor(image=data,
+                                              mask=mask,
+                                              gain=gain,
+                                              r0=2,
+                                              aper=aperture,
+                                              thresh=1.0,
+                                              wcs=wcs)
         log.info(f"SExtractor detections (1-sigma threshold): {len(self.sources)}")
 
         sextractor_flags = np.unique(self.sources['flags'])
