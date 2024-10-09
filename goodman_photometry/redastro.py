@@ -1,10 +1,9 @@
 import datetime
 import logging
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
-import warnings
-
 from astropy.io import fits as fits
 from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
@@ -22,13 +21,12 @@ from goodman_astro import (get_info,
                            goodman_wcs,
                            imgshow,
                            refine_wcs_scamp)
-
 from utils import setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
 
-setup_logging(debug=True, log_filename='goodman_astrometry_log.txt')
+setup_logging(debug=False, log_filename='goodman_astrometry_log.txt')
 
 log = logging.getLogger(__name__)
 
@@ -38,16 +36,24 @@ plt.rc('image', origin='lower', cmap='Blues_r')
 
 class Astrometry(object):
 
-    def __init__(self, save_plots=False, debug=False):
+    def __init__(self,
+                 catalog_name='gaiadr2',
+                 magnitude_threshold=17,
+                 scamp_flag=1,
+                 color_map='Blues_r',
+                 save_plots=False,
+                 save_scamp_plots=False,
+                 save_intermediary_files=False,
+                 debug=False):
         self.filename = None
         self.save_plots = save_plots
         self.debug = debug
-        self.save_intermediary_files = False
-        self.save_scamp_plots = False
-        self.catalog_name = 'gaiadr2'
-        self.magnitude_threshold = 17
-        self.scamp_flag = 1
-        self.color_map = 'Blues_r'
+        self.save_intermediary_files = save_intermediary_files
+        self.save_scamp_plots = save_scamp_plots
+        self.catalog_name = catalog_name
+        self.magnitude_threshold = magnitude_threshold
+        self.scamp_flag = scamp_flag
+        self.color_map = color_map
         self.image = None
         self.header = None
 
@@ -80,6 +86,8 @@ class Astrometry(object):
         self.__create_bad_pixel_mask()
 
         self.__create_basic_wcs_header()
+
+        self.__detect_sources_with_sextractor()
 
         self.__obtain_astrometric_solution_with_scamp()
 
@@ -305,3 +313,13 @@ class Astrometry(object):
         log.info(f"Astrometric calibration executed in {(end - self.start).total_seconds():.2f} seconds")
 
         log.info('Astrometric calibration finished.')
+
+
+
+# move this to an entrypoing function
+if __name__ == '__main__':
+    astrometry = Astrometry()
+
+    filename = '/Users/storres/data/noirlab/soar/goodman/photometry/DataQuality/0280_wd1_r_60.fits'
+
+    astrometry(filename=filename)
