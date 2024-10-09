@@ -1,15 +1,16 @@
+import logging
+import os
+import re
+import shlex
+import shutil
+import sys
+import tempfile
+
 import astroscrappy
 import dateutil
-import datetime
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import shutil
-import tempfile
-import shlex
-import re
 import statsmodels.api as sm
-import sys
 from astropy import units as u
 from astropy import wcs
 from astropy.coordinates import SkyCoord, search_around_sky
@@ -20,31 +21,11 @@ from astropy.visualization import PercentileInterval
 from astropy.wcs import WCS
 from astroquery.vizier import Vizier
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from scipy.stats import chi2
 from scipy.stats import binned_statistic_2d
+from scipy.stats import chi2
 
 
-# Utils (F Navarete)
-def log_message(file, message, init=False, print_time=False):
-    """
-      Initiates a log file and append a message to it.
-
-        file        (str): full path of the file to be created or to append a message to it.
-        message     (str): message to be appended to the file.
-        init       (bool): if True, initialize a new file.
-        print_time (bool): if True, will print a timestamp before the message.
-
-    """
-    if init:
-        with open(file, 'w') as f:
-            f.write('')
-
-    if print_time:
-        with open(file, 'a') as f:
-            f.write(str(datetime.datetime.now()) + '\t' + message + '\n')
-    else:
-        with open(file, 'a') as f:
-            f.write(message + '\n')
+log = logging.getLogger(__name__)
 
 
 # (F Navarete)
@@ -246,7 +227,7 @@ def goodman_wcs(header):
     header['PIXSCAL2'] = +binning[1] * 0.15  # arcsec  (for Swarp)
 
     if abs(header['PIXSCAL1']) != abs(header['PIXSCAL2']):
-        logger.warning('Pixel scales for X and Y do not mach.')
+        log.warning('Pixel scales for X and Y do not mach.')
 
     plate_scale = (abs(header['PIXSCAL1']) * u.arcsec).to('degree')
     p = plate_scale.to('degree').value
@@ -258,7 +239,7 @@ def goodman_wcs(header):
 
     except ValueError:
 
-        logger.error(
+        log.error(
             '"RA" and "DEC" missing. Using "TELRA" and "TELDEC" instead.')
 
         coordinates = SkyCoord(ra=header['TELRA'], dec=header['TELDEC'],
@@ -485,7 +466,7 @@ def get_objects_sextractor(
     :param _workdir: If specified, all temporary files will be created in this directory, and will be kept intact after running SExtractor. May be used for debugging exact inputs and outputs of the executable. Optional
     :param _tmpdir: If specified, all temporary files will be created in a dedicated directory (that will be deleted after running the executable) inside this path.
     :param _exe: Full path to SExtractor executable. If not provided, the code tries to locate it automatically in your :envvar:`PATH`.
-    :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
+    :param verbose: Whether to show verbose messages during the run of the function or not. Maybe either boolean, or a `print`-like function.
     :returns: Either the astropy.table.Table object with detected objects, or a list with table of objects (first element) and checkimages (consecutive elements), if checkimages are requested.
     """
 
@@ -509,10 +490,9 @@ def get_objects_sextractor(
             binname = shutil.which(exe)
             if binname is not None:
                 break
-
     if binname is None:
         log("Can't find SExtractor binary")
-        return None
+        sys.exit("Can't find SExtractor binary")
     # else:
     #     log("Using SExtractor binary at", binname)
 
@@ -640,7 +620,7 @@ def get_objects_sextractor(
         np.savetxt(
             kernelname,
             kernel / np.sum(kernel),
-            fmt=b'%.6f',
+            fmt='%.6f',
             header='CONV NORM',
             comments='',
         )
@@ -980,13 +960,13 @@ def imgshow(image, wcs=None, qq=(0.01, 0.99), cmap='Blues_r', px=None, py=None, 
         ax = plt.subplot()
     # define 1 and 99-th percentile for plotting the data
 
-    percentile = PercentileInterval(99.)
-    # quant = np.nanquantile(image,qq)
-    # if quant[0] < 0 :
-    #     quant[0] = 0
+    # percentile = PercentileInterval(99.)
+    quant = np.nanquantile(image,qq)
+    if quant[0] < 0 :
+        quant[0] = 0
 
     # now plot
-    img = ax.imshow(image, origin='lower', clim=percentile.get_limits(), interpolation='nearest', cmap=cmap)    # STDpipe
+    img = ax.imshow(image, origin='lower', vmin=quant[0], vmax=quant[1], interpolation='nearest', cmap=cmap)    # STDpipe
     if show_grid:
         ax.grid(color='white', ls='--')
     if wcs is not None:
@@ -1009,7 +989,7 @@ def imgshow(image, wcs=None, qq=(0.01, 0.99), cmap='Blues_r', px=None, py=None, 
 
 # plots (STDPipe)
 def colorbar(obj=None, ax=None, size="5%", pad=0.1):
-    should_restore = False
+    # should_restore = False
 
     if obj is not None:
         ax = obj.axes
@@ -1239,7 +1219,7 @@ def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,
     if quant[0] < 0:
         quant[0] = 0
 
-    im = ax.imshow(image, cmap='gray', origin='lower', vmin=quant[0], vmax=quant[1])
+    ax.imshow(image, cmap='gray', origin='lower', vmin=quant[0], vmax=quant[1])
 
     norm = plt.Normalize(phot_table[column_scale].min(), phot_table[column_scale].max())
     cmap = plt.cm.viridis.reversed()
