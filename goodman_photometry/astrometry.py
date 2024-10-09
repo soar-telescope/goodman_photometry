@@ -315,6 +315,13 @@ class Astrometry(object):
         log.info('Astrometric calibration finished.')
 
 
+def goodman_astrometry():
+    astrometry = Astrometry()
+
+    filename = '/Users/storres/data/noirlab/soar/goodman/photometry/DataQuality/0280_wd1_r_60.fits'
+
+    astrometry(filename=filename)
+
 
 # move this to an entrypoing function
 if __name__ == '__main__':
