@@ -138,7 +138,12 @@ class Photometry(object):
 
         self.data_quality_assessment(data=data)
 
-        self.do_photometry(data=data, header=header, wcs=wcs, center_ra=center_ra, center_dec=center_dec, fov_radius=fov_radius)
+        self.do_photometry(data=data,
+                           header=header,
+                           wcs=wcs,
+                           center_ra=center_ra,
+                           center_dec=center_dec,
+                           fov_radius=fov_radius)
 
     def run_sextractor(self, data, mask, gain, pixel_scale, wcs, seeing=1):
         full_width_at_tenth_maximum_to_fwhm = 1.82
