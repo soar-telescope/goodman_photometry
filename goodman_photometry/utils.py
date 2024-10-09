@@ -1,7 +1,8 @@
 import sys
 import logging
 
-def setup_logging(debug=False, generic=False, log_filename = 'goodman_photometry_log.txt'):  # pragma: no cover
+
+def setup_logging(debug=False, generic=False, log_filename='goodman_photometry_log.txt'):  # pragma: no cover
     """configures logging
 
     Notes:
