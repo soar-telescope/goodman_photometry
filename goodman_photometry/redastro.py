@@ -85,6 +85,8 @@ class Astrometry(object):
 
         self.__update_header()
 
+        self.__save_to_fits_file()
+
     def __create_bad_pixel_mask(self):
 
         self.bad_pixel_mask = bpm_mask(self.image, self.saturation_threshold, self.serial_binning)
