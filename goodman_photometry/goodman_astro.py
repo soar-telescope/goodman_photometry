@@ -3,7 +3,11 @@ import dateutil
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
-import os, shutil, tempfile, shlex, re
+import os
+import shutil
+import tempfile
+import shlex
+import re
 import statsmodels.api as sm
 import sys
 from astropy import units as u
@@ -19,8 +23,9 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import chi2
 from scipy.stats import binned_statistic_2d
 
+
 # Utils (F Navarete)
-def log_message(file,message, init=False, print_time=False):
+def log_message(file, message, init=False, print_time=False):
     """
       Initiates a log file and append a message to it.
 
@@ -31,14 +36,14 @@ def log_message(file,message, init=False, print_time=False):
 
     """
     if init:
-        with open(file,'w') as f:
+        with open(file, 'w') as f:
             f.write('')
 
     if print_time:
-        with open(file,'a') as f:
+        with open(file, 'a') as f:
             f.write(str(datetime.datetime.now()) + '\t' + message + '\n')
     else:
-        with open(file,'a') as f:
+        with open(file, 'a') as f:
             f.write(message + '\n')
 
 
@@ -72,11 +77,11 @@ def get_info(header):
 
     # get binning information
     serial_binning, parallel_binning = [int(b) for b in header['CCDSUM'].split()]
-    time  = get_obs_time(header, verbose=False)
+    time = get_obs_time(header, verbose=False)
 
     gain = header.get('GAIN')
     rdnoise = header.get('RDNOISE')
-    satur_thresh = get_saturation(gain,rdnoise)
+    satur_thresh = get_saturation(gain, rdnoise)
 
     exptime = header.get('EXPTIME')
 
@@ -95,13 +100,20 @@ def get_saturation(gain, rdnoise):
         satur_thresh (float): saturation threshold based on the readout mode (in ADU)
 
     """
-    if   gain == 1.54 and rdnoise == 3.45: satur_thresh = 50000 # 100kHzATTN3
-    elif gain == 3.48 and rdnoise == 5.88: satur_thresh = 25000 # 100kHzATTN2
-    elif gain == 1.48 and rdnoise == 3.89: satur_thresh = 50000 # 344kHzATTN3
-    elif gain == 3.87 and rdnoise == 7.05: satur_thresh = 25000 # 344kHzATTN0
-    elif gain == 1.47 and rdnoise == 5.27: satur_thresh = 50000 # 750kHzATTN2
-    elif gain == 3.77 and rdnoise == 8.99: satur_thresh = 25000 # 750kHzATTN0
-    else: satur_thresh = 50000
+    if gain == 1.54 and rdnoise == 3.45:
+        satur_thresh = 50000  # 100kHzATTN3
+    elif gain == 3.48 and rdnoise == 5.88:
+        satur_thresh = 25000  # 100kHzATTN2
+    elif gain == 1.48 and rdnoise == 3.89:
+        satur_thresh = 50000  # 344kHzATTN3
+    elif gain == 3.87 and rdnoise == 7.05:
+        satur_thresh = 25000  # 344kHzATTN0
+    elif gain == 1.47 and rdnoise == 5.27:
+        satur_thresh = 50000  # 750kHzATTN2
+    elif gain == 3.77 and rdnoise == 8.99:
+        satur_thresh = 25000  # 750kHzATTN0
+    else:
+        satur_thresh = 50000
     return satur_thresh
 
 
@@ -118,7 +130,6 @@ def check_wavmode(wavmode):
     if wavmode != "IMAGING":
         sys.exit("WAVMODE is not IMAGING. No data to process.")
     print("IMAGING data.")
-
 
 
 # (F Navarete)
@@ -153,6 +164,7 @@ def check_phot(m):
     """
     if m is None:
         sys.exit("Impossible to retrieve photometric results.")
+
 
 # (F Navarete)
 def filter_sets(filter_name):
@@ -205,8 +217,9 @@ def filter_sets(filter_name):
         # phot_color_mag2 = "r_SDSS"
 
     # no need for color term on the photometric calibration of a single filter exposure.
-    #return cat_filter, phot_mag, phot_color_mag1, phot_color_mag2
+    # return cat_filter, phot_mag, phot_color_mag1, phot_color_mag2
     return catalog_filter, photometry_filter
+
 
 # astro (F Navarete)
 def goodman_wcs(header):
@@ -229,13 +242,13 @@ def goodman_wcs(header):
 
     binning = np.array([int(b) for b in header['CCDSUM'].split(' ')])
 
-    header['PIXSCAL1'] =  -binning[0] * 0.15  # arcsec (for Swarp)
-    header['PIXSCAL2'] =  +binning[1] * 0.15  # arcsec  (for Swarp)
+    header['PIXSCAL1'] = -binning[0] * 0.15  # arcsec (for Swarp)
+    header['PIXSCAL2'] = +binning[1] * 0.15  # arcsec  (for Swarp)
 
     if abs(header['PIXSCAL1']) != abs(header['PIXSCAL2']):
         logger.warning('Pixel scales for X and Y do not mach.')
 
-    plate_scale = (abs(header['PIXSCAL1'])*u.arcsec).to('degree')
+    plate_scale = (abs(header['PIXSCAL1']) * u.arcsec).to('degree')
     p = plate_scale.to('degree').value
     w = wcs.WCS(naxis=2)
 
@@ -251,11 +264,11 @@ def goodman_wcs(header):
         coordinates = SkyCoord(ra=header['TELRA'], dec=header['TELDEC'],
                                unit=(u.hourangle, u.deg))
 
-    ra  = coordinates.ra.to('degree').value
+    ra = coordinates.ra.to('degree').value
     dec = coordinates.dec.to('degree').value
 
     w.wcs.crpix = [header['NAXIS2'] / 2, header['NAXIS1'] / 2]
-    w.wcs.cdelt = [+1.*p,+1.*p] #* binning
+    w.wcs.cdelt = [+1. * p, +1. * p]  # * binning
     w.wcs.crval = [ra, dec]
     w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
@@ -265,6 +278,7 @@ def goodman_wcs(header):
         header[key] = wcs_header[key]
 
     return header
+
 
 # (F Navarete)
 def mask_fov(image, binning):
@@ -287,16 +301,17 @@ def mask_fov(image, binning):
         center_x, center_y, radius = 510, 540, 515
     # if any other binning value is provided, it will use the center of the image as a reference
     else:
-        center_x, center_y, radius = image.shape[0]/2., image.shape[1]/2., image.shape[0]/2.
+        center_x, center_y, radius = image.shape[0] / 2., image.shape[1] / 2., image.shape[0] / 2.
 
     # create a grid of pixel coordinates
-    x, y = np.meshgrid( np.arange(image.shape[1]), np.arange(image.shape[0]) )
+    x, y = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
 
     # calculate the distance of each pixel from the center of the FOV
-    distance = np.sqrt( (x - center_x)**2 + (y - center_y)**2 )
+    distance = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
     mask_fov = distance > radius
 
     return mask_fov
+
 
 # (F Navarete)
 def bpm_mask(image, saturation, binning):
@@ -325,6 +340,7 @@ def bpm_mask(image, saturation, binning):
 
     return mask
 
+
 # (STDPipe)
 def spherical_distance(ra1, dec1, ra2, dec2):
     """
@@ -347,6 +363,7 @@ def spherical_distance(ra1, dec1, ra2, dec2):
     z *= z
 
     return np.rad2deg(2 * np.arcsin(np.sqrt(x * (z - y) + y)))
+
 
 # (STDPipe)
 def spherical_match(ra1, dec1, ra2, dec2, sr=1 / 3600):
@@ -378,6 +395,7 @@ def spherical_match(ra1, dec1, ra2, dec2, sr=1 / 3600):
 
     return idx1, idx2, dist
 
+
 # astrometry (STDPipe)
 def get_frame_center(filename=None, header=None, wcs=None, width=None, height=None, shape=None):
     """
@@ -401,7 +419,7 @@ def get_frame_center(filename=None, header=None, wcs=None, width=None, height=No
     if not wcs or not wcs.is_celestial:
         return None, None, None
 
-    #ra1, dec1 = wcs.all_pix2world(0, 0, 0)
+    # ra1, dec1 = wcs.all_pix2world(0, 0, 0)
     # Goodman has a circular FOV, so we need to set the origin at the center of the x-axis to estimate the radius of the FOV, not x=0.
     ra1, dec1 = wcs.all_pix2world(width / 2, 0, 0)
     ra0, dec0 = wcs.all_pix2world(width / 2, height / 2, 0)
@@ -410,31 +428,33 @@ def get_frame_center(filename=None, header=None, wcs=None, width=None, height=No
 
     return ra0.item(), dec0.item(), sr.item()
 
+
 # phot (STDPipe)
-def get_objects_sextractor(image,
-                            header=None,
-                            mask=None,
-                            err=None,
-                            thresh=2.0,
-                            aper=3.0,
-                            r0=0.0,
-                            gain=1,
-                            edge=0,
-                            minarea=5,
-                            wcs=None,
-                            sn=3.0,
-                            bg_size=None,
-                            sort=True,
-                            reject_negative=True,
-                            checkimages=[],
-                            extra_params=[],
-                            extra={},
-                            psf=None,
-                            catfile=None,
-                            _workdir=None,
-                            _tmpdir=None,
-                            _exe=None,
-                            verbose=False):
+def get_objects_sextractor(
+        image,
+        header=None,
+        mask=None,
+        err=None,
+        thresh=2.0,
+        aper=3.0,
+        r0=0.0,
+        gain=1,
+        edge=0,
+        minarea=5,
+        wcs=None,
+        sn=3.0,
+        bg_size=None,
+        sort=True,
+        reject_negative=True,
+        checkimages=[],
+        extra_params=[],
+        extra={},
+        psf=None,
+        catfile=None,
+        _workdir=None,
+        _tmpdir=None,
+        _exe=None,
+        verbose=False):
     """Thin wrapper around SExtractor binary.
 
     It processes the image taking into account optional mask and noise map, and returns the list of detected objects and optionally a set of SExtractor-produced checkimages.
@@ -515,7 +535,7 @@ def get_objects_sextractor(image,
     image[mask] = np.nan
 
     # Prepare
-    if type(image) == str:
+    if type(image) is str:
         # FIXME: this mode of operation is currently broken!
         imagename = image
     else:
@@ -534,7 +554,7 @@ def get_objects_sextractor(image,
         'DETECT_THRESH': thresh,
         'WEIGHT_TYPE': 'BACKGROUND',
         'MASK_TYPE': 'NONE',  # both 'CORRECT' and 'BLANK' seem to cause systematics?
-        'SATUR_LEVEL': np.nanmax(image[~mask]) + 1 # Saturation should be handled in external mask
+        'SATUR_LEVEL': np.nanmax(image[~mask]) + 1  # Saturation should be handled in external mask
     }
 
     if bg_size is not None:
@@ -761,16 +781,18 @@ def get_objects_sextractor(image,
 
     return result
 
+
 # phot (STDPipe)
 def make_kernel(r0=1.0, ext=1.0):
     x, y = np.mgrid[
-        np.floor(-ext * r0) : np.ceil(ext * r0 + 1),
-        np.floor(-ext * r0) : np.ceil(ext * r0 + 1),
+        np.floor(-ext * r0): np.ceil(ext * r0 + 1),
+        np.floor(-ext * r0): np.ceil(ext * r0 + 1),
     ]
     r = np.hypot(x, y)
     image = np.exp(-r ** 2 / 2 / r0 ** 2)
 
     return image
+
 
 # phot (F Navarete)
 def dq_results(dq_obj):
@@ -791,15 +813,15 @@ def dq_results(dq_obj):
     fwhm_error = np.median(np.absolute(dq_obj['fwhm'] - np.median(dq_obj['fwhm'])))
 
     # estimate median ellipticity of the sources (ell = 1 - b/a)
-    med_a = np.median(dq_obj['a']) # major axis
-    med_b = np.median(dq_obj['b']) # minor axis
+    med_a = np.median(dq_obj['a'])  # major axis
+    med_b = np.median(dq_obj['b'])  # minor axis
     med_a_error = np.median(np.absolute(dq_obj['a'] - np.median(dq_obj['a'])))
     med_b_error = np.median(np.absolute(dq_obj['b'] - np.median(dq_obj['b'])))
     ell = 1 - med_b / med_a
-    ell_error = ell * np.sqrt( (med_a_error/med_a)**2 + (med_b_error/med_b)**2 )
-
+    ell_error = ell * np.sqrt((med_a_error / med_a) ** 2 + (med_b_error / med_b) ** 2)
 
     return fwhm, fwhm_error, ell, ell_error
+
 
 # Utils (STDPipe)
 def file_write(filename, contents=None, append=False):
@@ -810,6 +832,7 @@ def file_write(filename, contents=None, append=False):
     with open(filename, 'a' if append else 'w') as f:
         if contents is not None:
             f.write(contents)
+
 
 # utils (STDPipe)
 def table_get(table, colname, default=0):
@@ -827,6 +850,7 @@ def table_get(table, colname, default=0):
     else:
         # Broadcast scalar to proper length
         return default * np.ones(len(table), dtype=int)
+
 
 # utils (STDPipe)
 def get_obs_time(header=None, filename=None, string=None, get_datetime=False, verbose=False):
@@ -922,12 +946,12 @@ def format_astromatic_opts(opts):
     for key in opts.keys():
         if opts[key] is None:
             pass
-        elif type(opts[key]) == bool:
+        elif type(opts[key]) is bool:
             result.append('-%s %s' % (key, 'Y' if opts[key] else 'N'))
         else:
             value = opts[key]
 
-            if type(value) == str:
+            if type(value) is str:
                 value = shlex.quote(value)
             elif hasattr(value, '__len__'):
                 value = ','.join([str(_) for _ in value])
@@ -938,8 +962,9 @@ def format_astromatic_opts(opts):
 
     return result
 
+
 # plots (STDPipe)
-def imgshow(image, wcs=None, qq=(0.01,0.99), cmap='Blues_r', px=None, py=None, plot_wcs=False, pmarker='r.', psize=2, title=None, figsize=None, show_grid=False, output=None, dpi=300):
+def imgshow(image, wcs=None, qq=(0.01, 0.99), cmap='Blues_r', px=None, py=None, plot_wcs=False, pmarker='r.', psize=2, title=None, figsize=None, show_grid=False, output=None, dpi=300):
     """
       Wrapper for matplotlib imshow, can plot datapoints and use the available WCS.
     """
@@ -980,6 +1005,7 @@ def imgshow(image, wcs=None, qq=(0.01,0.99), cmap='Blues_r', px=None, py=None, p
     plt.tight_layout()
     if output is not None:
         plt.savefig(output, dpi=dpi)
+
 
 # plots (STDPipe)
 def colorbar(obj=None, ax=None, size="5%", pad=0.1):
@@ -1041,15 +1067,15 @@ def binned_map(
     )
 
     vmin1, vmax1 = np.percentile(gmag0[np.isfinite(gmag0)], qq)
-    if not 'vmin' in kwargs:
+    if 'vmin' not in kwargs:
         kwargs['vmin'] = vmin1
-    if not 'vmax' in kwargs:
+    if 'vmax' not in kwargs:
         kwargs['vmax'] = vmax1
 
     if ax is None:
         ax = plt.gca()
 
-    if not 'aspect' in kwargs:
+    if 'aspect' not in kwargs:
         kwargs['aspect'] = 'auto'
 
     im = ax.imshow(
@@ -1103,24 +1129,24 @@ def plot_photometric_match(m, ax=None, mode='mag', show_masked=True, show_final=
     # Textual representation of the photometric model
     model_str = 'Instr = %s' % m.get('cat_col_mag', 'Cat')
 
-    if ( 'cat_col_mag1' in m.keys() and 'cat_col_mag2' in m.keys() and 'color_term' in m.keys() and m['color_term'] is not None ):
+    if ('cat_col_mag1' in m.keys() and 'cat_col_mag2' in m.keys() and 'color_term' in m.keys() and m['color_term'] is not None):
         sign = '-' if m['color_term'] > 0 else '+'
         model_str += ' %s %.2f (%s - %s)' % (sign, np.abs(m['color_term']), m['cat_col_mag1'], m['cat_col_mag2'])
 
     model_str += ' + ZP'
 
     if mode == 'mag':
-        ax.errorbar( m['cmag'][m['idx0']],  (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
+        ax.errorbar(m['cmag'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot( m['cmag'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+            ax.plot(m['cmag'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
         if show_final:
-            ax.plot( m['cmag'][m['idx']],   (m['zero_model'] - m['zero'])[m['idx']],   '.', alpha=1.0, color='red', label='Final fit', zorder=10)
+            ax.plot(m['cmag'][m['idx']], (m['zero_model'] - m['zero'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
 
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.legend()
         ax.grid(alpha=0.2)
 
-        ax.set_xlabel('Catalogue %s magnitude' % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else '') )
+        ax.set_xlabel('Catalogue %s magnitude' % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else ''))
         ax.set_ylabel('Instrumental - Model')
         ax.set_title('%d of %d unmasked stars used in final fit' % (np.sum(m['idx']), np.sum(m['idx0'])))
         ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
@@ -1128,19 +1154,19 @@ def plot_photometric_match(m, ax=None, mode='mag', show_masked=True, show_final=
         if cmag_limits is not None:
             x = m['cmag'][m['idx0']].value
             y = (m['zero_model'] - m['zero'])[m['idx0']].value
-            idx = ( x > cmag_limits[0] ) * ( x < cmag_limits[1] )
-            ylim0=(np.min(y[idx]),np.max(y[idx]))
+            idx = (x > cmag_limits[0]) * (x < cmag_limits[1])
+            ylim0 = (np.min(y[idx]), np.max(y[idx]))
             dy = ylim0[1] - ylim0[0]
-            ylim = (ylim0[0]-0.05*dy,ylim0[1]+0.05*dy)
+            ylim = (ylim0[0] - 0.05 * dy, ylim0[1] + 0.05 * dy)
             ax.set_xlim(cmag_limits)
             ax.set_ylim(ylim)
 
     elif mode == 'normed':
-        ax.plot( m['cmag'][m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx0']], '.', alpha=0.3, zorder=0)
+        ax.plot(m['cmag'][m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx0']], '.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot( m['cmag'][~m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+            ax.plot(m['cmag'][~m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
         if show_final:
-            ax.plot( m['cmag'][m['idx']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
+            ax.plot(m['cmag'][m['idx']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
 
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.axhline(-3, ls=':', color='black', alpha=0.3)
@@ -1148,22 +1174,22 @@ def plot_photometric_match(m, ax=None, mode='mag', show_masked=True, show_final=
         ax.legend()
         ax.grid(alpha=0.2)
 
-        ax.set_xlabel('Catalogue %s magnitude'% (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else '') )
+        ax.set_xlabel('Catalogue %s magnitude' % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else ''))
         ax.set_ylabel('(Instrumental - Model) / Error')
         ax.set_title('%d of %d unmasked stars used in final fit' % (np.sum(m['idx']), np.sum(m['idx0'])))
         ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
 
     elif mode == 'color':
-        ax.errorbar( m['color'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
+        ax.errorbar(m['color'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot( m['color'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+            ax.plot(m['color'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
         if show_final:
-            ax.plot( m['color'][m['idx']], (m['zero_model'] - m['zero'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
+            ax.plot(m['color'][m['idx']], (m['zero_model'] - m['zero'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
 
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.legend()
         ax.grid(alpha=0.2)
-        ax.set_xlabel('Catalogue %s color' % ( m['cat_col_mag1'] + '-' + m['cat_col_mag2'] if 'cat_col_mag1' in m.keys() else ''))
+        ax.set_xlabel('Catalogue %s color' % (m['cat_col_mag1'] + '-' + m['cat_col_mag2'] if 'cat_col_mag1' in m.keys() else ''))
         ax.set_ylabel('Instrumental - Model')
         ax.set_title('color term = %.2f' % (m['color_term'] or 0.0))
         ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
@@ -1184,13 +1210,14 @@ def plot_photometric_match(m, ax=None, mode='mag', show_masked=True, show_final=
         ax.set_title('Instrumental - model')
 
     elif mode == 'dist':
-        binned_map( m['ox'][m['idx']], m['oy'][m['idx']], m['dist'][m['idx']] * 3600, ax=ax, **kwargs)
-        ax.set_title('%d stars: mean displacement %.1f arcsec, median %.1f arcsec' % (np.sum(m['idx']),np.mean(m['dist'][m['idx']] * 3600),np.median(m['dist'][m['idx']] * 3600)))
+        binned_map(m['ox'][m['idx']], m['oy'][m['idx']], m['dist'][m['idx']] * 3600, ax=ax, **kwargs)
+        ax.set_title('%d stars: mean displacement %.1f arcsec, median %.1f arcsec' % (np.sum(m['idx']), np.mean(m['dist'][m['idx']] * 3600), np.median(m['dist'][m['idx']] * 3600)))
 
     return ax
 
+
 # plots (F Navarete)
-def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,0.98), output=None, dpi=300):
+def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02, 0.98), output=None, dpi=300):
     """
       Simple function to plot the image and overlay the SExtractor detections using the calibrated magnitudes as color scale.
 
@@ -1208,8 +1235,8 @@ def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,
     ax = plt.subplot(projection=wcs)
 
     # define percentiles for plotting the data
-    quant = np.nanquantile(image,qq)
-    if quant[0] < 0 :
+    quant = np.nanquantile(image, qq)
+    if quant[0] < 0:
         quant[0] = 0
 
     im = ax.imshow(image, cmap='gray', origin='lower', vmin=quant[0], vmax=quant[1])
@@ -1219,13 +1246,13 @@ def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,
 
     # add ellipses to the plot:
     for row in phot_table:
-        e = Ellipse( ( row['x'], row['y'] ), width=2*row['a'], height=2*row['b'], angle=row['theta'],
-                     edgecolor=cmap(norm(row[column_scale])), facecolor='none', linewidth=0.5, alpha=0.55, transform=ax.get_transform('pixel'))
+        e = Ellipse((row['x'], row['y']), width=2 * row['a'], height=2 * row['b'], angle=row['theta'],
+                    edgecolor=cmap(norm(row[column_scale])), facecolor='none', linewidth=0.5, alpha=0.55, transform=ax.get_transform('pixel'))
         ax.add_patch(e)
 
     # add color bar
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([]) # not required for Matplotlib >= 3.1
+    sm.set_array([])  # not required for Matplotlib >= 3.1
     cbar = plt.colorbar(sm, ax=ax)
     cbar.set_label(column_scale)
     cbar.ax.invert_yaxis()
@@ -1233,20 +1260,22 @@ def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02,
     if output is not None:
         plt.savefig(output, dpi=dpi)
 
+
 # cat (STDPipe)
 catalogs = {
-    'ps1':        {'vizier': 'II/349/ps1', 'name': 'PanSTARRS DR1'},
-    'gaiadr2':    {'vizier': 'I/345/gaia2', 'name': 'Gaia DR2', 'extra': ['E(BR/RP)']},
-    'gaiaedr3':   {'vizier': 'I/350/gaiaedr3', 'name': 'Gaia EDR3'},
+    'ps1': {'vizier': 'II/349/ps1', 'name': 'PanSTARRS DR1'},
+    'gaiadr2': {'vizier': 'I/345/gaia2', 'name': 'Gaia DR2', 'extra': ['E(BR/RP)']},
+    'gaiaedr3': {'vizier': 'I/350/gaiaedr3', 'name': 'Gaia EDR3'},
     'gaiadr3syn': {'vizier': 'I/360/syntphot', 'name': 'Gaia DR3 synthetic photometry', 'extra': ['**', '_RAJ2000', '_DEJ2000']},
-    'usnob1':     {'vizier': 'I/284/out', 'name': 'USNO-B1'},
-    'gsc':        {'vizier': 'I/271/out', 'name': 'GSC 2.2'},
-    'skymapper':  {'vizier': 'II/358/smss', 'name': 'SkyMapper DR1.1', 'extra': ['_RAJ2000', '_DEJ2000', 'e_uPSF', 'e_vPSF', 'e_gPSF', 'e_rPSF', 'e_iPSF', 'e_zPSF']},
-    'vsx':        {'vizier': 'B/vsx/vsx', 'name': 'AAVSO VSX'},
-    'apass':      {'vizier': 'II/336/apass9', 'name': 'APASS DR9'},
-    'sdss':       {'vizier': 'V/147/sdss12','name': 'SDSS DR12','extra': ['_RAJ2000', '_DEJ2000']},
-    'atlas':      {'vizier': 'J/ApJ/867/105/refcat2', 'name': 'ATLAS-REFCAT2', 'extra': ['_RAJ2000','_DEJ2000','e_Gmag','e_gmag','e_rmag','e_imag','e_zmag','e_Jmag','e_Kmag']}
+    'usnob1': {'vizier': 'I/284/out', 'name': 'USNO-B1'},
+    'gsc': {'vizier': 'I/271/out', 'name': 'GSC 2.2'},
+    'skymapper': {'vizier': 'II/358/smss', 'name': 'SkyMapper DR1.1', 'extra': ['_RAJ2000', '_DEJ2000', 'e_uPSF', 'e_vPSF', 'e_gPSF', 'e_rPSF', 'e_iPSF', 'e_zPSF']},
+    'vsx': {'vizier': 'B/vsx/vsx', 'name': 'AAVSO VSX'},
+    'apass': {'vizier': 'II/336/apass9', 'name': 'APASS DR9'},
+    'sdss': {'vizier': 'V/147/sdss12', 'name': 'SDSS DR12', 'extra': ['_RAJ2000', '_DEJ2000']},
+    'atlas': {'vizier': 'J/ApJ/867/105/refcat2', 'name': 'ATLAS-REFCAT2', 'extra': ['_RAJ2000', '_DEJ2000', 'e_Gmag', 'e_gmag', 'e_rmag', 'e_imag', 'e_zmag', 'e_Jmag', 'e_Kmag']}
 }
+
 
 # cat (STDPipe)
 def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extra=[], get_distance=False, verbose=False):
@@ -1332,7 +1361,7 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
     if (
         '_RAJ2000' in cat.keys()
         and '_DEJ2000' in cat.keys()
-        and not 'RAJ2000' in cat.keys()
+        and 'RAJ2000' not in cat.keys()
     ):
         cat.rename_columns(['_RAJ2000', '_DEJ2000'], ['RAJ2000', 'DEJ2000'])
 
@@ -1346,19 +1375,19 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
 
         # My simple Gaia DR2 to Johnson conversion based on Stetson standards (this is from STDPipe - GaiaDR2 transformations do not have B filter)
         pB = [-0.05927724559795761,
-               0.4224326324292696,
-               0.626219707920836,
+              0.4224326324292696,
+              0.626219707920836,
               -0.011211539139725953,]
         pV = [0.0017624722901609662,
               0.15671377090187089,
               0.03123927839356175,
               0.041448557506784556,]
-        pR = [ 0.02045449129406191,
-               0.054005149296716175,
+        pR = [0.02045449129406191,
+              0.054005149296716175,
               -0.3135475489352255,
-               0.020545083667168156,]
-        pI = [ 0.005092289380850884,
-               0.07027022935721515,
+              0.020545083667168156,]
+        pI = [0.005092289380850884,
+              0.07027022935721515,
               -0.7025553064161775,
               -0.02747532184796779,]
 
@@ -1367,22 +1396,21 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
         pCR = [347.42190542330945, 39.42482430363565, 0.8626828845232541, 0]
         pCI = [79.4028706486939, 9.176899238787003, -0.7826315256072135, 0]
 
-        g  = cat['Gmag']
+        g = cat['Gmag']
         bp = cat['BPmag']
         rp = cat['RPmag']
         bp_rp = cat['BPmag'] - cat['RPmag']
 
         # phot_bp_rp_excess_factor == E(BR/RP) == E_BR_RP_
-        Cstar = cat['E_BR_RP_'] - np.polyval( [-0.00445024, 0.0570293, -0.02810592, 1.20477819], bp_rp )
+        Cstar = cat['E_BR_RP_'] - np.polyval([-0.00445024, 0.0570293, -0.02810592, 1.20477819], bp_rp)
 
         # https://www.cosmos.esa.int/web/gaia/dr2-known-issues#PhotometrySystematicEffectsAndResponseCurves
         gcorr = g.copy()
         gcorr[(g > 2) & (g < 6)] = (-0.047344
                                     + 1.16405 * g[(g > 2) & (g < 6)]
                                     - 0.046799 * g[(g > 2) & (g < 6)] ** 2
-                                    + 0.0035015 * g[(g > 2) & (g < 6)] ** 3 )
-        gcorr[(g > 6) & (g < 16)] = g[(g > 6) & (g < 16)] - 0.0032 * (
-                                    g[(g > 6) & (g < 16)] - 6 )
+                                    + 0.0035015 * g[(g > 2) & (g < 6)] ** 3)
+        gcorr[(g > 6) & (g < 16)] = g[(g > 6) & (g < 16)] - 0.0032 * (g[(g > 6) & (g < 16)] - 6)
         gcorr[g > 16] = g[g > 16] - 0.032
         g = gcorr
 
@@ -1400,18 +1428,18 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
             cat[_] = cat[_ + 'mag']
 
         # to SDSS, from https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu5pho/sec_cu5pho_calibr/ssec_cu5pho_PhotTransf.html
-        cat['r_SDSS'] = g - (-0.12879 +0.24662 * bp_rp -0.027464 * bp_rp ** 2 -0.049465 * bp_rp ** 3 )
-        cat['i_SDSS'] = g - (-0.29676 +0.64728 * bp_rp -0.101410 * bp_rp ** 2 )
-        cat['g_SDSS'] = g - (+0.13518 -0.46245 * bp_rp -0.251710 * bp_rp ** 2 +0.021349 * bp_rp ** 3 )
+        cat['r_SDSS'] = g - (-0.12879 + 0.24662 * bp_rp - 0.027464 * bp_rp ** 2 - 0.049465 * bp_rp ** 3)
+        cat['i_SDSS'] = g - (-0.29676 + 0.64728 * bp_rp - 0.101410 * bp_rp ** 2)
+        cat['g_SDSS'] = g - (+0.13518 - 0.46245 * bp_rp - 0.251710 * bp_rp ** 2 + 0.021349 * bp_rp ** 3)
 
         # (F Navarete)
         # apply selection criteria for transforming to SDSS magnitudes
         # compute SDSS magnitudes only if sources are not saturated
-        mask = ( bp > 4.0 ) * ( rp > 4.0 ) * ( g > 6.5 )
+        mask = (bp > 4.0) * (rp > 4.0) * (g > 6.5)
         # secondary masks for the SDSS filters
-        mask_g = ( cat['g_SDSS'] > 15.0 ) * ( cat['g_SDSS'] > g + 1.4 * bp_rp - 1.37 )
-        mask_r = ( cat['r_SDSS'] > 15.0 ) * ( cat['r_SDSS'] > g + 0.7 * bp_rp - 1.50 )
-        mask_i = ( cat['i_SDSS'] > 15.0 )
+        mask_g = (cat['g_SDSS'] > 15.0) * (cat['g_SDSS'] > g + 1.4 * bp_rp - 1.37)
+        mask_r = (cat['r_SDSS'] > 15.0) * (cat['r_SDSS'] > g + 0.7 * bp_rp - 1.50)
+        mask_i = (cat['i_SDSS'] > 15.0)
         # set to NaN all magnitudes that do not satisfy the photometric criteria
         cat['g_SDSS'][~(mask * mask_g)] = np.nan
         cat['r_SDSS'][~(mask * mask_r)] = np.nan
@@ -1423,6 +1451,7 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
         print("Must select 'gaiadr2' from now...")
 
     return cat
+
 
 # astrometry (STDPipe)
 def table_to_ldac(table, header=None, writeto=None):
@@ -1450,6 +1479,7 @@ def table_to_ldac(table, header=None, writeto=None):
 
     return hdulist
 
+
 # astrometry (STDPipe)
 def get_pixscale(wcs=None, filename=None, header=None):
     '''
@@ -1464,6 +1494,7 @@ def get_pixscale(wcs=None, filename=None, header=None):
             wcs = WCS(header=header)
 
     return np.hypot(wcs.pixel_scale_matrix[0, 0], wcs.pixel_scale_matrix[0, 1])
+
 
 # astrometry (STDPipe)
 def refine_wcs_scamp(
@@ -1624,7 +1655,7 @@ def refine_wcs_scamp(
         os.unlink(hdrname)
 
     if cat:
-        if type(cat) == str:
+        if type(cat) is str:
             # Match with network catalogue by name
             opts['ASTREF_CATALOG'] = cat
             log('Using', cat, 'as a network catalogue')
@@ -1753,6 +1784,7 @@ def refine_wcs_scamp(
 
     return wcs
 
+
 # astro (STDPipe)
 def clear_wcs(header,
               remove_comments=False,
@@ -1849,6 +1881,7 @@ def clear_wcs(header,
 
     return header
 
+
 # photometry (STDPipe)
 def make_series(mul=1.0, x=1.0, y=1.0, order=1, sum=False, zero=True):
     x = np.atleast_1d(x)
@@ -1896,8 +1929,8 @@ def match(
     verbose=False,
     robust=True,
     scale_noise=False,
-    ecmag_thresh = None, # FN
-    cmag_limits = None,  # FN
+    ecmag_thresh=None,  # FN
+    cmag_limits=None,  # FN
     use_color=True,
 ):
     """Low-level photometric matching routine.
@@ -2029,11 +2062,10 @@ def match(
     # weights = 1.0/zero_err**2
 
     # filter bad photometry
-    idx0 = ( np.isfinite(omag)
-           & np.isfinite(omag_err)
-           & np.isfinite(cmag)
-           & np.isfinite(cmag_err)
-           & ((oflags & ~accept_flags) == 0) )  # initial mask
+    idx0 = (np.isfinite(omag)
+            & np.isfinite(omag_err)
+            & np.isfinite(cmag)
+            & np.isfinite(cmag_err) & ((oflags & ~accept_flags) == 0))  # initial mask
 
     # FN remove large errors
     if ecmag_thresh is not None:
@@ -2042,7 +2074,7 @@ def match(
 
     # FN make sure we are including well calibrated data from the catalogue
     if cmag_limits is not None:
-        idx0 &= ( ( cmag >= np.min(cmag_limits) ) & ( cmag <= np.max(cmag_limits) ) )
+        idx0 &= ((cmag >= np.min(cmag_limits)) & (cmag <= np.max(cmag_limits)))
 
     if cat_color is not None and use_color:
         idx0 &= np.isfinite(ccolor)
@@ -2147,13 +2179,13 @@ def match(
                 err = np.hypot(err, intrinsic_rms)
             return err
         else:
-            return np.sum(X * C.params[0 : X.shape[1]], axis=1)
+            return np.sum(X * C.params[0: X.shape[1]], axis=1)
 
     if cat_color is not None and use_color:
         X = make_series(order=spatial_order)
         if bg_order is not None:
             X += make_series(order=bg_order)
-        color_term = C.params[len(X) :][0]
+        color_term = C.params[len(X):][0]
         log('Color term is %.2f' % color_term)
     else:
         color_term = None
@@ -2184,6 +2216,7 @@ def match(
         'idx0': idx0,
     }
 
+
 # photometry - pipeline (STDPipe)
 def calibrate_photometry(
     obj,
@@ -2205,7 +2238,7 @@ def calibrate_photometry(
     cat_col_mag2=None,
     cat_col_ra='RAJ2000',
     cat_col_dec='DEJ2000',
-    ecmag_thresh=None, # FN
+    ecmag_thresh=None,  # FN
     cmag_limits=None,  # FN
     update=True,
     verbose=False,
@@ -2259,9 +2292,9 @@ def calibrate_photometry(
             sr = 1. / 3600
 
     log('Performing photometric calibration of %d objects vs %d catalogue stars'
-        % (len(obj), len(cat)) )
+        % (len(obj), len(cat)))
     log('Using %.1f arcsec matching radius, %s magnitude and spatial order %d'
-        % (sr * 3600, cat_col_mag, order) )
+        % (sr * 3600, cat_col_mag, order))
     if cat_col_mag1 and cat_col_mag2:
         log('Using (%s - %s) color for color term' % (cat_col_mag1, cat_col_mag2))
         color = cat[cat_col_mag1] - cat[cat_col_mag2]
@@ -2273,25 +2306,25 @@ def calibrate_photometry(
     else:
         cat_magerr = None
 
-    m = match(  obj[obj_col_ra],
-                obj[obj_col_dec],
-                obj[obj_col_mag],
-                obj[obj_col_mag_err],
-                obj[obj_col_flags],
-                cat[cat_col_ra],
-                cat[cat_col_dec],
-                cat[cat_col_mag],
-                cat_magerr=cat_magerr,
-                sr=sr,
-                cat_color=color,
-                obj_x=obj[obj_col_x] if obj_col_x else None,
-                obj_y=obj[obj_col_y] if obj_col_y else None,
-                spatial_order=order,
-                bg_order=bg_order,
-                ecmag_thresh = ecmag_thresh, # FN
-                cmag_limits = cmag_limits,   # FN
-                verbose=verbose,
-                **kwargs                                    )
+    m = match(obj[obj_col_ra],
+              obj[obj_col_dec],
+              obj[obj_col_mag],
+              obj[obj_col_mag_err],
+              obj[obj_col_flags],
+              cat[cat_col_ra],
+              cat[cat_col_dec],
+              cat[cat_col_mag],
+              cat_magerr=cat_magerr,
+              sr=sr,
+              cat_color=color,
+              obj_x=obj[obj_col_x] if obj_col_x else None,
+              obj_y=obj[obj_col_y] if obj_col_y else None,
+              spatial_order=order,
+              bg_order=bg_order,
+              ecmag_thresh=ecmag_thresh,  # FN
+              cmag_limits=cmag_limits,   # FN
+              verbose=verbose,
+              **kwargs)
 
     if m:
         log('Photometric calibration finished successfully.')
@@ -2305,12 +2338,13 @@ def calibrate_photometry(
 
         if update:
             obj['mag_calib'] = obj[obj_col_mag] + m['zero_fn'](obj['x'], obj['y'], obj['mag'])
-            obj['mag_calib_err'] = np.hypot( obj[obj_col_mag_err],
-                                             m['zero_fn'](obj['x'], obj['y'], obj['mag'], get_err=True) )
+            obj['mag_calib_err'] = np.hypot(obj[obj_col_mag_err],
+                                            m['zero_fn'](obj['x'], obj['y'], obj['mag'], get_err=True))
     else:
         log('Photometric calibration failed')
 
     return m
+
 
 # phot (F Navarete)
 def phot_table(m, pixscale=None, columns=None):
@@ -2332,15 +2366,15 @@ def phot_table(m, pixscale=None, columns=None):
 
     m_table = Table()
 
-    for c,column in enumerate(m.keys()):
+    for c, column in enumerate(m.keys()):
         # avoid three specific columns with different formats
-        if ( column != 'zero_fn' ) and ( column != 'error_scale' ) and ( column != 'intrinsic_rms' ):
-            l=len(m[column]) if m[column] is not None else 0
+        if (column != 'zero_fn') and (column != 'error_scale') and (column != 'intrinsic_rms'):
+            l = len(m[column]) if m[column] is not None else 0
             if c == 0:
                 l0 = l
             if l == l0:
                 m_table[column] = m[column]
-        #else:
+        # else:
         #    print(column)
         #    print(m[column])
         #    print("")
@@ -2351,12 +2385,13 @@ def phot_table(m, pixscale=None, columns=None):
     if pixscale is not None:
         # convert FWHM from pixel to arcseconds
         fwhm_index = m_table.colnames.index('fwhm')
-        m_table.add_column(m_table['fwhm'] * pixscale, name='fwhm_arcsec', index=fwhm_index+1)
+        m_table.add_column(m_table['fwhm'] * pixscale, name='fwhm_arcsec', index=fwhm_index + 1)
         # evaluate ellipticity
         b_index = m_table.colnames.index('b')
-        m_table.add_column(1 - m_table['b'] / m_table['a'], name='ell', index=b_index+1)
+        m_table.add_column(1 - m_table['b'] / m_table['a'], name='ell', index=b_index + 1)
 
     return m_table
+
 
 # phot (F Navarete)
 def phot_zeropoint(m, model=False):
@@ -2364,10 +2399,10 @@ def phot_zeropoint(m, model=False):
       Reads the output from calibrate_photometry() and returns the photometric zero point.
     """
     # estimate the median photometric zero point of the image
-    med_zp   = np.nanmedian(m['zero'])
-    med_ezp  = np.nanmedian(m['zero_err'])
+    med_zp = np.nanmedian(m['zero'])
+    med_ezp = np.nanmedian(m['zero_err'])
     if model:
-        med_zp  = np.nanmedian(m['zero_model'])
+        med_zp = np.nanmedian(m['zero_model'])
         med_ezp = np.nanmedian(m['zero_model_err'])
 
     return med_zp, med_ezp
