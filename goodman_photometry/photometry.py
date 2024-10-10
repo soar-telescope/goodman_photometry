@@ -53,8 +53,10 @@ class Photometry(object):
         self.magnitude_error_threshold = 0.1
         self.magnitude_range = [8, 22]
 
-        self.plot_file_resolution = 600
-        self.plot_color_map = 'Blues_r'
+        self.plot_file_resolution = plot_file_resolution
+        self.color_map = color_map
+
+        self.log = logging.getLogger()
 
         self.sources = None
         self.data_quality_sources = None
@@ -94,7 +96,7 @@ class Photometry(object):
                                                              height=height)
         self.pixel_scale = get_pixscale(wcs=wcs)
 
-        log.info(f"Frame center is {center_ra:.2f} {center_dec:.2f} "
+        self.log.info(f"Frame center is {center_ra:.2f} {center_dec:.2f} "
                  f"radius {fov_radius * 60:.2f} arcmin,"
                  f" {self.pixel_scale * 36000:.3f} arcsec/pixel")
 
@@ -107,15 +109,15 @@ class Photometry(object):
          saturation_threshold,
          exposure_time) = get_info(header)
 
-        log.info(f"Filter={filter_name}"
+        self.log.info(f"Filter={filter_name}"
                  f" Exposure Time={exposure_time:.2f}"
                  f" Binning={serial_binning}x{parallel_binning}"
                  f"  Pixel Scale={self.pixel_scale * 3600}")
 
-        log.info("Normalizing image data by exposure time.")
+        self.log.info("Normalizing image data by exposure time.")
         data /= exposure_time
 
-        log.info(f"Processing {self.filename}: filter: {filter_name} gain: {gain:.2f} at {time}")
+        self.log.info(f"Processing {self.filename}: filter: {filter_name} gain: {gain:.2f} at {time}")
         if self.save_plots:
             output_filename = self.filename.replace(".fits", "_phot_wcs.png")
             plot_image(image=data,
@@ -128,7 +130,7 @@ class Photometry(object):
         bad_pixel_mask = bpm_mask(image=data,
                                   saturation=saturation_threshold,
                                   binning=serial_binning)
-        log.debug("Bad pixel mask created")
+        self.log.debug("Bad pixel mask created")
 
         self.run_sextractor(
             data=data,
@@ -149,7 +151,7 @@ class Photometry(object):
     def run_sextractor(self, data, mask, gain, pixel_scale, wcs, seeing=1):
         full_width_at_tenth_maximum_to_fwhm = 1.82
         aperture = np.round(full_width_at_tenth_maximum_to_fwhm * seeing / (pixel_scale * 3600.))
-        log.info(f"SExtractor aperture radius: {aperture:.1f} pixels.")
+        self.log.info(f"SExtractor aperture radius: {aperture:.1f} pixels.")
         self.sources = get_objects_sextractor(image=data,
                                               mask=mask,
                                               gain=gain,
@@ -157,12 +159,12 @@ class Photometry(object):
                                               aper=aperture,
                                               thresh=1.0,
                                               wcs=wcs)
-        log.info(f"SExtractor detections (1-sigma threshold): {len(self.sources)}")
+        self.log.info(f"SExtractor detections (1-sigma threshold): {len(self.sources)}")
 
         sextractor_flags = np.unique(self.sources['flags'])
 
         for flag in sextractor_flags:
-            log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
+            self.log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
 
         if self.save_plots:
             output_filename = self.filename.replace(".fits", "_phot_detections.png")
@@ -177,7 +179,7 @@ class Photometry(object):
                        pmarker='r.',
                        psize=2,
                        show_grid=False)
-            log.info(f"SExtractor detections plot saved to: {output_filename}")
+            self.log.info(f"SExtractor detections plot saved to: {output_filename}")
         return self.sources
 
     def data_quality_assessment(self, data):
@@ -195,7 +197,7 @@ class Photometry(object):
                        pmarker="r.",
                        psize=2,
                        show_grid=False)
-            log.info(f"SExtractor detections (flag=0) plot saved to: {output_filename}")
+            self.log.info(f"SExtractor detections (flag=0) plot saved to: {output_filename}")
         self.dq = dq_results(dq_obj=self.data_quality_sources)
         # fwhm, fwhm_error, ellipticity, ellipticity_error = dq_results(dq_obj=self.data_quality_sources)
         # self._data_quality["fwhm"] = fwhm
@@ -203,26 +205,26 @@ class Photometry(object):
         # self._data_quality["ellipticity"] = ellipticity
         # self._data_quality["ellipticity_error"] = ellipticity_error
 
-        log.info("--------------------------")
-        log.info("Data Quality Outputs")
-        log.info(f"Number of Objects for Data Quality: {len(self.data_quality_sources)}/{len(self.sources)}")
-        log.info(f"Median FWHM: {self.dq['fwhm']:.2f}+/-{self.dq['fwhm_error']:.2f} pixels")
-        log.info(f"Median FWHM: {self.dq['fwhm'] * self.pixel_scale * 3600.}+/-{self.dq['fwhm_error'] * self.pixel_scale * 3600} arcsec")
-        log.info(f"Median ellipticity: {self.dq['ellipticity']:.3f}+/-{self.dq['ellipticity_error']:.3f}")
-        log.info("--------------------------")
+        self.log.info("--------------------------")
+        self.log.info("Data Quality Outputs")
+        self.log.info(f"Number of Objects for Data Quality: {len(self.data_quality_sources)}/{len(self.sources)}")
+        self.log.info(f"Median FWHM: {self.dq['fwhm']:.2f}+/-{self.dq['fwhm_error']:.2f} pixels")
+        self.log.info(f"Median FWHM: {self.dq['fwhm'] * self.pixel_scale * 3600.}+/-{self.dq['fwhm_error'] * self.pixel_scale * 3600} arcsec")
+        self.log.info(f"Median ellipticity: {self.dq['ellipticity']:.3f}+/-{self.dq['ellipticity_error']:.3f}")
+        self.log.info("--------------------------")
         return self.dq
 
     def do_photometry(self, data, header, wcs, center_ra, center_dec, fov_radius):
         catalog_filter, photometry_filter = filter_sets(filter_name=self.filter_name)
         default_photometry_filter = 'Gmag'
-        log.debug(f"Calibrating Goodman HST {self.filter_name} "
+        self.log.debug(f"Calibrating Goodman HST {self.filter_name} "
                   f"filter observations using {catalog_filter} magnitudes from {self.catalog_name} "
                   f"converted to {photometry_filter} filter.")
         catalog = get_cat_vizier(center_ra, center_dec, fov_radius, self.catalog_name,
                                  filters={catalog_filter: f'<{self.magnitude_threshold}'})
 
-        log.debug(f"{len(catalog)} catalogue stars on {catalog_filter} filter")
-        log.info(f"Photometric calibration using {catalog_filter} "
+        self.log.debug(f"{len(catalog)} catalogue stars on {catalog_filter} filter")
+        self.log.info(f"Photometric calibration using {catalog_filter} "
                  f"magnitudes from {self.catalog_name} converted to {photometry_filter} filter")
 
         magnitudes = calibrate_photometry(
@@ -261,7 +263,7 @@ class Photometry(object):
 
         sources_table_html_filename = self.filename.replace(".fits", "_obj_table.html")
         sources_table.write(sources_table_html_filename, format='html', overwrite=True)
-        log.info(f"Table of sources used for photometric calibration is stored as {sources_table_html_filename}")
+        self.log.info(f"Table of sources used for photometric calibration is stored as {sources_table_html_filename}")
 
         # plot calibrated detections over the image
         calibrated_detections_plot_filename = self.filename.replace(".fits", "_phot_detections_calibrated.png")
@@ -272,7 +274,7 @@ class Photometry(object):
                      qq=(0.02, 0.98),
                      output=calibrated_detections_plot_filename,
                      dpi=self.plot_file_resolution)
-        log.info(f"Photometric calibrated detections plotted over the image with WCS solution as "
+        self.log.info(f"Photometric calibrated detections plotted over the image with WCS solution as "
                  f"{calibrated_detections_plot_filename}")
 
         plot_bins = np.round(2. * (fov_radius * 3600.) / 60.0)
@@ -304,13 +306,13 @@ class Photometry(object):
 
         # get photometric zero point estimate
         median_zeropoint, median_zeropoint_error = phot_zeropoint(m=magnitudes)
-        log.debug(f"Median empirical ZP: {median_zeropoint:.3f}+/-{median_zeropoint_error:.3f}")
+        self.log.debug(f"Median empirical ZP: {median_zeropoint:.3f}+/-{median_zeropoint_error:.3f}")
 
         median_zeropoint_default, median_zeropoint_error_default = phot_zeropoint(m=magnitudes_with_default_filter)
-        log.debug(f"Median empirical ZP on {default_photometry_filter} "
+        self.log.debug(f"Median empirical ZP on {default_photometry_filter} "
                   f"filter: {median_zeropoint_default:.3f}+/-{median_zeropoint_error_default:.3f}")
 
-        log.info(f"Median empirical ZP: {median_zeropoint:.3f}+/-{median_zeropoint_error:.3f}")
+        self.log.info(f"Median empirical ZP: {median_zeropoint:.3f}+/-{median_zeropoint_error:.3f}")
 
         header_out = header
         # results from Data Quality measurements (Sextractor)
@@ -367,12 +369,12 @@ class Photometry(object):
         photometry_filename = self.filename.replace(".fits", "_phot.fits")
         hdul.writeto(photometry_filename, overwrite=True)
 
-        log.info(f"FITS file saved as {photometry_filename}")
+        self.log.info(f"FITS file saved as {photometry_filename}")
 
         # set start of the code
         end = datetime.datetime.now()
         elapsed_time = (end - self.start).total_seconds()
-        log.info(f"Photometric calibration executed in {elapsed_time:.2f} seconds")
+        self.log.info(f"Photometric calibration executed in {elapsed_time:.2f} seconds")
 
         #
         # Exit

@@ -26,9 +26,6 @@ from .utils import get_astrometry_args, setup_logging
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
 
-setup_logging(debug=False, log_filename='goodman_astrometry_log.txt')
-
-log = logging.getLogger(__name__)
 
 # Adjust default parameters for imshow
 plt.rc('image', origin='lower', cmap='Blues_r')
@@ -56,15 +53,21 @@ class Astrometry(object):
         self.color_map = color_map
         self.image = None
         self.header = None
+        self.log = logging.getLogger()
 
     def __call__(self, filename):
         self.filename = filename
 
         self.start = datetime.datetime.now()
-        log.info(f"Processing {filename}")
+        self.log.info(f"Processing {self.filename}")
 
-        self.image = fits.getdata(filename).astype(np.double)
-        self.header = fits.getheader(filename)
+        try:
+
+            self.image = fits.getdata(self.filename).astype(np.double)
+            self.header = fits.getheader(self.filename)
+        except FileNotFoundError:
+            self.log.critical(f"File {self.filename} not found!!")
+            raise SystemExit(-1)
 
         # gather required information from the header
         (self.filter_name,
@@ -76,12 +79,12 @@ class Astrometry(object):
          self.saturation_threshold,
          exposure_time) = get_info(self.header)
 
-        log.debug(f"Processing {self.filename}: "
+        self.log.debug(f"Processing {self.filename}: "
                   f"filter {self.filter_name}, "
                   f"gain {self.gain:.2f}, "
                   f"saturation_threshold {self.saturation_threshold: .1f} at {time}")
 
-        log.info(f"filter={self.filter_name} exposure_time={exposure_time:.2f} binning={self.serial_binning}x{parallel_binning}")
+        self.log.info(f"filter={self.filter_name} exposure_time={exposure_time:.2f} binning={self.serial_binning}x{parallel_binning}")
 
         self.__create_bad_pixel_mask()
 
@@ -99,7 +102,7 @@ class Astrometry(object):
 
         self.bad_pixel_mask = bpm_mask(self.image, self.saturation_threshold, self.serial_binning)
 
-        log.debug('Done masking cosmics')
+        self.log.debug('Done masking cosmics')
 
         if self.save_intermediary_files:
             hdu = fits.PrimaryHDU(data=self.bad_pixel_mask.astype(int), header=self.header)
@@ -113,7 +116,7 @@ class Astrometry(object):
                 output=plot_image_filename,
                 qq=(0.01, 0.99),
                 cmap=self.color_map)
-        log.info(f"Image - no WCS: {plot_image_filename}")
+        self.log.info(f"Image - no WCS: {plot_image_filename}")
 
         plot_bad_pixel_mask_filename = self.filename.replace(".fits", "_BPM.png")
         imgshow(image=self.bad_pixel_mask,
@@ -122,7 +125,7 @@ class Astrometry(object):
                 output=plot_bad_pixel_mask_filename,
                 qq=(0, 1),
                 cmap=self.color_map)
-        log.info(f"Image - bad pixel mask: {plot_bad_pixel_mask_filename}")
+        self.log.info(f"Image - bad pixel mask: {plot_bad_pixel_mask_filename}")
 
     def __create_basic_wcs_header(self):
         header_with_basic_wcs = goodman_wcs(self.header)
@@ -136,13 +139,13 @@ class Astrometry(object):
         self.ra_0, self.dec_0, self.fov_radius = get_frame_center(wcs=self.wcs_init, width=self.image.shape[1], height=self.image.shape[0])
         self.image_pixel_scale = get_pixscale(wcs=self.wcs_init)
 
-        log.info(f"Initial WCS: RA={self.ra_0} DEC={self.dec_0} SR={self.fov_radius} PIXSCALE={self.image_pixel_scale}")
+        self.log.info(f"Initial WCS: RA={self.ra_0} DEC={self.dec_0} SR={self.fov_radius} PIXSCALE={self.image_pixel_scale}")
 
     def __detect_sources_with_sextractor(self):
         self.seeing = 1.0
         self.full_width_at_tenth_maximum_to_fwhm = 1.82
         sextractor_aperture = np.round(self.full_width_at_tenth_maximum_to_fwhm * self.seeing / (self.image_pixel_scale * 3600.))
-        log.info(f"SExtractor aperture radius={sextractor_aperture:.1f} pixels")
+        self.log.info(f"SExtractor aperture radius={sextractor_aperture:.1f} pixels")
 
         self.sources = get_objects_sextractor(image=self.image,
                                               mask=self.bad_pixel_mask,
@@ -151,14 +154,14 @@ class Astrometry(object):
                                               aper=sextractor_aperture,
                                               wcs=self.wcs_init)
 
-        log.info(f"SExtractor detections: {len(self.sources)}")
+        self.log.info(f"SExtractor detections: {len(self.sources)}")
 
-        log.info("SExtractor detections per flag")
+        self.log.info("SExtractor detections per flag")
 
         sextractor_flags = np.unique(self.sources['flags'])
 
         for flag in sextractor_flags:
-            log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
+            self.log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
 
         plot_detections_filename = self.filename.replace(".fits", "_detections.png")
 
@@ -174,7 +177,7 @@ class Astrometry(object):
                 psize=2,
                 show_grid=False)
 
-        log.info(f"Image - SExtractor detections: {plot_detections_filename}")
+        self.log.info(f"Image - SExtractor detections: {plot_detections_filename}")
 
     def __data_quality_assessment(self):
         data_quality_sources = self.sources[self.sources['flags'] == 0]
@@ -193,21 +196,21 @@ class Astrometry(object):
                 psize=2,
                 show_grid=False)
 
-        log.info(f"Image - Detected objects (FLAG=0): {plot_detections_flag_0_filename}")
+        self.log.info(f"Image - Detected objects (FLAG=0): {plot_detections_flag_0_filename}")
 
         fwhm, fwhm_error, ellipticity, ellipticity_error = dq_results(data_quality_sources)
 
-        log.info("Data quality results")
-        log.info(f"Number of objects: {len(data_quality_sources)}/{len(self.sources)}")
-        log.info(f"Median FWHM: {fwhm:.2f}+/-{fwhm_error:.2f} pixels")
-        log.info(f"Median FWHM: {fwhm * self.image_pixel_scale * 3600.:.2f}+/-{fwhm_error * self.image_pixel_scale * 3600.:.2f} arcseconds")
-        log.info(f"Median Ellipticity: {ellipticity:.3f}+/-{ellipticity_error:.3f}")
+        self.log.info("Data quality results")
+        self.log.info(f"Number of objects: {len(data_quality_sources)}/{len(self.sources)}")
+        self.log.info(f"Median FWHM: {fwhm:.2f}+/-{fwhm_error:.2f} pixels")
+        self.log.info(f"Median FWHM: {fwhm * self.image_pixel_scale * 3600.:.2f}+/-{fwhm_error * self.image_pixel_scale * 3600.:.2f} arcseconds")
+        self.log.info(f"Median Ellipticity: {ellipticity:.3f}+/-{ellipticity_error:.3f}")
 
     def __obtain_astrometric_solution_with_scamp(self):
-        log.info(f"Performing astrometry with SCAMP using {self.catalog_name}")
+        self.log.info(f"Performing astrometry with SCAMP using {self.catalog_name}")
         self.catalog_filter, _ = filter_sets(self.filter_name)
 
-        log.info(f"Querying Vizier for {self.catalog_name} catalog")
+        self.log.info(f"Querying Vizier for {self.catalog_name} catalog")
 
         vizier_catalog = get_cat_vizier(ra0=self.ra_0,
                                         dec0=self.dec_0,
@@ -215,12 +218,12 @@ class Astrometry(object):
                                         catalog=self.catalog_name,
                                         filters={self.catalog_filter: f'<{self.magnitude_threshold}'})
 
-        log.info(f"Retrieved {len(vizier_catalog)} stars on {self.catalog_filter} filter (magnitude threshold={self.magnitude_threshold:.2f}).")
+        self.log.info(f"Retrieved {len(vizier_catalog)} stars on {self.catalog_filter} filter (magnitude threshold={self.magnitude_threshold:.2f}).")
 
         if self.save_intermediary_files:
             catalog_file_filename = self.filename.replace(".fits", f"_{self.catalog_name}_cat.vsv")
             vizier_catalog.write(catalog_file_filename, overwrite=True)
-            log.info(f"Vizier catalog saved as {catalog_file_filename}")
+            self.log.info(f"Vizier catalog saved as {catalog_file_filename}")
 
         if self.save_scamp_plots:
             scamp_plots = ['FGROUPS', 'DISTORTION', 'ASTR_REFERROR2D', 'ASTR_REFERROR1D']
@@ -235,7 +238,7 @@ class Astrometry(object):
 
         scamp_sources = self.sources if not self.scamp_flag else self.sources[self.sources['flags'] <= self.scamp_flag]
 
-        log.info("Running SCAMP for refining the WCS solution.")
+        self.log.info("Running SCAMP for refining the WCS solution.")
 
         self.header_with_wcs = refine_wcs_scamp(
             obj=scamp_sources,
@@ -258,7 +261,7 @@ class Astrometry(object):
             scamp_results_filename = self.filename.replace(".fits", "_scamp_results.txt")
             with open(scamp_results_filename, "w") as scamp_results:
                 scamp_results.write(repr(self.header_with_wcs))
-            log.info(f"SCAMP results saved as {scamp_results_filename}")
+            self.log.info(f"SCAMP results saved as {scamp_results_filename}")
 
     def __update_header(self):
         wcs = check_wcs(header=self.header_with_wcs)
@@ -270,13 +273,13 @@ class Astrometry(object):
             remove_history=True)
 
         if not wcs or not wcs.is_celestial:
-            log.error("WCS refinement failed. Using initial WCS from header information.")
+            self.log.error("WCS refinement failed. Using initial WCS from header information.")
             self.outgoing_header.update(self.wcs_init.to_header(relax=True))
             self.outgoing_header.append(('GSP_ASOL', 'Header information', 'Astrometry solution mode'), end=True)
 
         else:
-            log.info("WCS refinement succeeded.")
-            log.info(f"RMS(x,y) = {self.header_with_wcs['ASTRRMS1'] * 3600.:.2f}\" {self.header_with_wcs['ASTRRMS2'] * 3600.:.2f}\"")
+            self.log.info("WCS refinement succeeded.")
+            self.log.info(f"RMS(x,y) = {self.header_with_wcs['ASTRRMS1'] * 3600.:.2f}\" {self.header_with_wcs['ASTRRMS2'] * 3600.:.2f}\"")
 
             self.outgoing_header.update(wcs.to_header(relax=True))
 
@@ -306,13 +309,13 @@ class Astrometry(object):
         hdu_list = fits.HDUList([hdu])
         hdu_list.writeto(outgoing_filename, overwrite=True)
 
-        log.info(f"FITS file saved as {outgoing_filename}")
+        self.log.info(f"FITS file saved as {outgoing_filename}")
 
         end = datetime.datetime.now()
 
-        log.info(f"Astrometric calibration executed in {(end - self.start).total_seconds():.2f} seconds")
+        self.log.info(f"Astrometric calibration executed in {(end - self.start).total_seconds():.2f} seconds")
 
-        log.info('Astrometric calibration finished.')
+        self.log.info('Astrometric calibration finished.')
 
 
 def goodman_astrometry():
