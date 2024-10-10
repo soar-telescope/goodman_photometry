@@ -43,14 +43,21 @@ def get_photometry_args(args=None):
 
 class Photometry(object):
 
-    def __init__(self, save_plots=False, debug=False) -> None:
+    def __init__(self,
+                 catalog_name='gaiadr2',
+                 magnitude_threshold=17,
+                 magnitude_error_threshold=0.1,
+                 color_map='Blues_r',
+                 plot_file_resolution=600,
+                 save_plots=False,
+                 debug=False) -> None:
         self.filename = None
         self.output_filename = None
         self.save_plots = save_plots
         self.debug = debug
-        self.catalog_name = 'gaiadr2'
-        self.magnitude_threshold = 17
-        self.magnitude_error_threshold = 0.1
+        self.catalog_name = catalog_name
+        self.magnitude_threshold = magnitude_threshold
+        self.magnitude_error_threshold = magnitude_error_threshold
         self.magnitude_range = [8, 22]
 
         self.plot_file_resolution = plot_file_resolution
@@ -125,7 +132,7 @@ class Photometry(object):
                        title=filename.replace(".fits", ""),
                        output=output_filename,
                        dpi=self.plot_file_resolution,
-                       cmap=self.plot_color_map)
+                       cmap=self.color_map)
 
         bad_pixel_mask = bpm_mask(image=data,
                                   saturation=saturation_threshold,
@@ -175,7 +182,7 @@ class Photometry(object):
                        title="Detected sources",
                        output=output_filename,
                        dpi=self.plot_file_resolution,
-                       cmap=self.plot_color_map,
+                       cmap=self.color_map,
                        pmarker='r.',
                        psize=2,
                        show_grid=False)
@@ -193,7 +200,7 @@ class Photometry(object):
                        title="Detected sources (FLAG=0)",
                        output=output_filename,
                        dpi=self.plot_file_resolution,
-                       cmap=self.plot_color_map,
+                       cmap=self.color_map,
                        pmarker="r.",
                        psize=2,
                        show_grid=False)
@@ -384,8 +391,17 @@ class Photometry(object):
         print("")
 
 
-if __name__ == "__main__":
+def goodman_photometry():
 
-    photometry = Photometry(save_plots=True, debug=True)
-    filename = "/Users/storres/data/noirlab/soar/goodman/photometry/DataQuality/0277_wd1_r_5.fits"
-    photometry(filename=filename)
+    args = get_photometry_args()
+
+    setup_logging(debug=args.debug, log_filename=args.log_filename)
+    photometry = Photometry(
+        catalog_name=args.catalog_name,
+        magnitude_threshold=args.magnitude_threshold,
+        magnitude_error_threshold=args.magnitude_error_threshold,
+        color_map=args.color_map,
+        plot_file_resolution=args.plot_file_resolution,
+        save_plots=args.save_plots,
+        debug=args.debug)
+    photometry(filename=args.filename)

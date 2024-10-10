@@ -319,17 +319,19 @@ class Astrometry(object):
 
 
 def goodman_astrometry():
-    astrometry = Astrometry()
+    """Entrypoint for astrometry calculation
+    """
+    args = get_astrometry_args()
 
-    filename = '/Users/storres/data/noirlab/soar/goodman/photometry/DataQuality/0280_wd1_r_60.fits'
+    setup_logging(debug=args.debug, log_filename=args.log_filename)
+    astrometry = Astrometry(
+        catalog_name=args.catalog_name,
+        magnitude_threshold=args.magnitude_threshold,
+        scamp_flag=args.scamp_flag,
+        color_map=args.color_map,
+        save_plots=args.save_plots,
+        save_scamp_plots=args.save_scamp_plots,
+        save_intermediary_files=args.save_intermediary_files,
+        debug=args.debug)
 
-    astrometry(filename=filename)
-
-
-# move this to an entrypoing function
-if __name__ == '__main__':
-    astrometry = Astrometry()
-
-    filename = '/Users/storres/data/noirlab/soar/goodman/photometry/DataQuality/0280_wd1_r_60.fits'
-
-    astrometry(filename=filename)
+    astrometry(filename=args.filename)
