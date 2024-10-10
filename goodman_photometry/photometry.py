@@ -8,24 +8,25 @@ from astropy.io.fits.verify import VerifyWarning
 from astropy.io import fits
 from astropy.wcs import FITSFixedWarning
 
-from goodman_astro import (bpm_mask,
-                           calibrate_photometry,
-                           check_phot,
-                           check_wcs,
-                           dq_results,
-                           filter_sets,
-                           get_cat_vizier,
-                           get_frame_center,
-                           get_info,
-                           get_objects_sextractor,
-                           get_pixscale,
-                           plot_photometric_match,
-                           plot_photcal,
-                           phot_table,
-                           phot_zeropoint)
+from .goodman_astro import (bpm_mask,
+                            calibrate_photometry,
+                            check_phot,
+                            check_wcs,
+                            dq_results,
+                            filter_sets,
+                            get_cat_vizier,
+                            get_frame_center,
+                            get_info,
+                            get_objects_sextractor,
+                            get_pixscale,
+                            plot_photometric_match,
+                            plot_photcal,
+                            phot_table,
+                            phot_zeropoint)
+
 from goodman_astro import imgshow as plot_image
 
-from utils import setup_logging
+from .utils import get_photometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
