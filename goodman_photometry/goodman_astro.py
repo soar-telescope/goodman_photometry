@@ -961,8 +961,8 @@ def imgshow(image, wcs=None, qq=(0.01, 0.99), cmap='Blues_r', px=None, py=None, 
     # define 1 and 99-th percentile for plotting the data
 
     # percentile = PercentileInterval(99.)
-    quant = np.nanquantile(image,qq)
-    if quant[0] < 0 :
+    quant = np.nanquantile(image, qq)
+    if quant[0] < 0:
         quant[0] = 0
 
     # now plot

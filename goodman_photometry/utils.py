@@ -5,6 +5,7 @@ import logging
 from importlib.metadata import version
 __version__ = version('goodman_photometry')
 
+
 def setup_logging(debug=False, generic=False, log_filename='goodman_photometry_log.txt'):  # pragma: no cover
     """configures logging
 
@@ -48,8 +49,6 @@ def setup_logging(debug=False, generic=False, log_filename='goodman_photometry_l
 def get_astrometry_args(arguments=None):
     """Does astrometry solution of goodman data
     """
-    log = logging.getLogger()
-
     parser = argparse.ArgumentParser(
         description=f"Does astrometry solution of Goodman High Throughput Spectrograph data.\n\nVersion: {__version__}")
 
@@ -107,8 +106,6 @@ def get_astrometry_args(arguments=None):
 def get_photometry_args(arguments=None):
     """Obtains photometry of goodman data
     """
-    log = logging.getLogger()
-
     parser = argparse.ArgumentParser(
         description=f"Obtains photometry of Goodman High Throughput Spectrograph data.\n\nVersion: {__version__}")
 

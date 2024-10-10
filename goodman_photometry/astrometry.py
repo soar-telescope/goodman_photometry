@@ -80,9 +80,9 @@ class Astrometry(object):
          exposure_time) = get_info(self.header)
 
         self.log.debug(f"Processing {self.filename}: "
-                  f"filter {self.filter_name}, "
-                  f"gain {self.gain:.2f}, "
-                  f"saturation_threshold {self.saturation_threshold: .1f} at {time}")
+                       f"filter {self.filter_name}, "
+                       f"gain {self.gain:.2f}, "
+                       f"saturation_threshold {self.saturation_threshold: .1f} at {time}")
 
         self.log.info(f"filter={self.filter_name} exposure_time={exposure_time:.2f} binning={self.serial_binning}x{parallel_binning}")
 

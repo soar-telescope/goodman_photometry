@@ -95,8 +95,8 @@ class Photometry(object):
         self.pixel_scale = get_pixscale(wcs=wcs)
 
         self.log.info(f"Frame center is {center_ra:.2f} {center_dec:.2f} "
-                 f"radius {fov_radius * 60:.2f} arcmin,"
-                 f" {self.pixel_scale * 36000:.3f} arcsec/pixel")
+                      f"radius {fov_radius * 60:.2f} arcmin,"
+                      f" {self.pixel_scale * 36000:.3f} arcsec/pixel")
 
         (filter_name,
          serial_binning,
@@ -108,9 +108,9 @@ class Photometry(object):
          exposure_time) = get_info(header)
 
         self.log.info(f"Filter={filter_name}"
-                 f" Exposure Time={exposure_time:.2f}"
-                 f" Binning={serial_binning}x{parallel_binning}"
-                 f"  Pixel Scale={self.pixel_scale * 3600}")
+                      f" Exposure Time={exposure_time:.2f}"
+                      f" Binning={serial_binning}x{parallel_binning}"
+                      f"  Pixel Scale={self.pixel_scale * 3600}")
 
         self.log.info("Normalizing image data by exposure time.")
         data /= exposure_time
@@ -216,14 +216,14 @@ class Photometry(object):
         catalog_filter, photometry_filter = filter_sets(filter_name=self.filter_name)
         default_photometry_filter = 'Gmag'
         self.log.debug(f"Calibrating Goodman HST {self.filter_name} "
-                  f"filter observations using {catalog_filter} magnitudes from {self.catalog_name} "
-                  f"converted to {photometry_filter} filter.")
+                       f"filter observations using {catalog_filter} magnitudes from {self.catalog_name} "
+                       f"converted to {photometry_filter} filter.")
         catalog = get_cat_vizier(center_ra, center_dec, fov_radius, self.catalog_name,
                                  filters={catalog_filter: f'<{self.magnitude_threshold}'})
 
         self.log.debug(f"{len(catalog)} catalogue stars on {catalog_filter} filter")
         self.log.info(f"Photometric calibration using {catalog_filter} "
-                 f"magnitudes from {self.catalog_name} converted to {photometry_filter} filter")
+                      f"magnitudes from {self.catalog_name} converted to {photometry_filter} filter")
 
         magnitudes = calibrate_photometry(
             obj=self.sources,
@@ -273,7 +273,7 @@ class Photometry(object):
                      output=calibrated_detections_plot_filename,
                      dpi=self.plot_file_resolution)
         self.log.info(f"Photometric calibrated detections plotted over the image with WCS solution as "
-                 f"{calibrated_detections_plot_filename}")
+                      f"{calibrated_detections_plot_filename}")
 
         plot_bins = np.round(2. * (fov_radius * 3600.) / 60.0)
 
@@ -308,7 +308,7 @@ class Photometry(object):
 
         median_zeropoint_default, median_zeropoint_error_default = phot_zeropoint(m=magnitudes_with_default_filter)
         self.log.debug(f"Median empirical ZP on {default_photometry_filter} "
-                  f"filter: {median_zeropoint_default:.3f}+/-{median_zeropoint_error_default:.3f}")
+                       f"filter: {median_zeropoint_default:.3f}+/-{median_zeropoint_error_default:.3f}")
 
         self.log.info(f"Median empirical ZP: {median_zeropoint:.3f}+/-{median_zeropoint_error:.3f}")
 
