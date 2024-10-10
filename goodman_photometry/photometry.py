@@ -32,15 +32,6 @@ warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
 
 
-setup_logging(debug=True)
-
-log = logging.getLogger(__name__)
-
-
-def get_photometry_args(args=None):
-    pass
-
-
 class Photometry(object):
 
     def __init__(self,
