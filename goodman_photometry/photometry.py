@@ -24,7 +24,7 @@ from .goodman_astro import (bpm_mask,
                             phot_table,
                             phot_zeropoint)
 
-from goodman_astro import imgshow as plot_image
+from .goodman_astro import imgshow as plot_image
 
 from .utils import get_photometry_args, setup_logging
 
@@ -70,7 +70,8 @@ class Photometry(object):
         return self._data_quality
 
     @dq.setter
-    def dq(self, fwhm: float, fwhm_error: float, ellipticity: float, ellipticity_error: float):
+    def dq(self, results):
+        fwhm, fwhm_error, ellipticity, ellipticity_error = results
         if isinstance(fwhm, float):
             self._data_quality["fwhm"] = fwhm
         if isinstance(fwhm_error, float):
@@ -98,7 +99,7 @@ class Photometry(object):
                       f"radius {fov_radius * 60:.2f} arcmin,"
                       f" {self.pixel_scale * 36000:.3f} arcsec/pixel")
 
-        (filter_name,
+        (self.filter_name,
          serial_binning,
          parallel_binning,
          time,
@@ -107,7 +108,7 @@ class Photometry(object):
          saturation_threshold,
          exposure_time) = get_info(header)
 
-        self.log.info(f"Filter={filter_name}"
+        self.log.info(f"Filter={self.filter_name}"
                       f" Exposure Time={exposure_time:.2f}"
                       f" Binning={serial_binning}x{parallel_binning}"
                       f"  Pixel Scale={self.pixel_scale * 3600}")
@@ -115,7 +116,7 @@ class Photometry(object):
         self.log.info("Normalizing image data by exposure time.")
         data /= exposure_time
 
-        self.log.info(f"Processing {self.filename}: filter: {filter_name} gain: {gain:.2f} at {time}")
+        self.log.info(f"Processing {self.filename}: filter: {self.filter_name} gain: {gain:.2f} at {time}")
         if self.save_plots:
             output_filename = self.filename.replace(".fits", "_phot_wcs.png")
             plot_image(image=data,
@@ -228,7 +229,7 @@ class Photometry(object):
         magnitudes = calibrate_photometry(
             obj=self.sources,
             cat=catalog,
-            pixel_scale=self.pixel_scale,
+            pixscale=self.pixel_scale,
             ecmag_thresh=self.magnitude_error_threshold,
             cmag_limits=self.magnitude_range,
             cat_col_mag=photometry_filter,
@@ -240,7 +241,7 @@ class Photometry(object):
         magnitudes_with_default_filter = calibrate_photometry(
             obj=self.sources,
             cat=catalog,
-            pixel_scale=self.pixel_scale,
+            pixscale=self.pixel_scale,
             ecmag_thresh=self.magnitude_error_threshold,
             cmag_limits=self.magnitude_range,
             cat_col_mag=default_photometry_filter,
