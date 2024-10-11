@@ -227,7 +227,7 @@ def goodman_wcs(header):
     header['PIXSCAL2'] = +binning[1] * 0.15  # arcsec  (for Swarp)
 
     if abs(header['PIXSCAL1']) != abs(header['PIXSCAL2']):
-        log.warning('Pixel scales for X and Y do not mach.')
+        log.warning("Pixel scales for X and Y do not mach.")
 
     plate_scale = (abs(header['PIXSCAL1']) * u.arcsec).to('degree')
     p = plate_scale.to('degree').value
@@ -239,8 +239,7 @@ def goodman_wcs(header):
 
     except ValueError:
 
-        log.error(
-            '"RA" and "DEC" missing. Using "TELRA" and "TELDEC" instead.')
+        log.error(f"\"RA\" and \"DEC\" missing. Using \"TELRA\" and \"TELDEC\" instead.")
 
         coordinates = SkyCoord(ra=header['TELRA'], dec=header['TELDEC'],
                                unit=(u.hourangle, u.deg))
@@ -632,7 +631,7 @@ def get_objects_sextractor(
     )
     if not verbose:
         cmd += ' > /dev/null 2>/dev/null'
-    log.debug('Will run SExtractor like that:')
+    log.debug("Will run SExtractor like that:")
     log.debug(cmd)
 
     # Run the command!
@@ -640,7 +639,7 @@ def get_objects_sextractor(
     res = os.system(cmd)
 
     if res == 0 and os.path.exists(catname):
-        log.info('SExtractor run succeeded')
+        log.info("SExtractor run succeeded")
         obj = Table.read(catname, hdu=2)
         obj.meta.clear()  # Remove unnecessary entries from the metadata
 
@@ -846,14 +845,14 @@ def get_obs_time(header=None, filename=None, string=None, get_datetime=False, ve
         if isinstance(time, float):
             # Try to parse floating-point value as MJD or JD, depending on the value
             if time > 0 and time < 100000:
-                log.debug('Assuming it is MJD')
+                log.debug("Assuming it is MJD")
                 time = Time(time, format='mjd')
             elif time > 2400000 and time < 2500000:
-                log.debug('Assuming it is JD')
+                log.debug("Assuming it is JD")
                 time = Time(time, format='jd')
             else:
                 # Then it is probably an Unix time?..
-                log.debug('Assuming it is Unix time')
+                log.debug("Assuming it is Unix time")
                 time = Time(time, format='unix')
 
         else:
@@ -870,7 +869,7 @@ def get_obs_time(header=None, filename=None, string=None, get_datetime=False, ve
         try:
             return convert_time(dateutil.parser.parse(string))
         except dateutil.parser.ParserError as err:
-            log.error('Could not parse user-provided string:', err)
+            log.error(f"Could not parse user-provided string: {err}")
             return None
 
     if header is None:
@@ -879,7 +878,7 @@ def get_obs_time(header=None, filename=None, string=None, get_datetime=False, ve
 
     for dkey in ['DATE-OBS', 'DATE', 'TIME-OBS', 'UT', 'MJD', 'JD']:
         if dkey in header:
-            log.debug('Found ' + dkey + ':', header[dkey])
+            log.debug(f"Found {dkey}: {header[dkey]}")
             # First try to parse standard ISO time
             try:
                 return convert_time(header[dkey])
@@ -896,7 +895,7 @@ def get_obs_time(header=None, filename=None, string=None, get_datetime=False, ve
                     except dateutil.parser.ParserError as err:
                         log.error(f"Could not parse {dkey} {tkey}: {err}")
 
-    log.error('Unsupported FITS header time format')
+    log.error("Unsupported FITS header time format")
 
     return None
 
@@ -1651,9 +1650,9 @@ def refine_wcs_scamp(
 
             opts['ASTREF_CATALOG'] = 'FILE'
             opts['ASTREFCAT_NAME'] = catname
-            log.info('Using user-provided local catalogue')
+            log.info("Using user-provided local catalogue")
     else:
-        log.info('Using default settings for network catalogue')
+        log.info("Using default settings for network catalogue")
 
     # Build the command line
     command = (
@@ -1661,7 +1660,7 @@ def refine_wcs_scamp(
     )
     if not verbose:
         command += ' > /dev/null 2>/dev/null'
-    log.info('Will run SCAMP like that:')
+    log.info("Will run SCAMP like that:")
     log.info(command)
 
     # Run the command!
@@ -1671,7 +1670,7 @@ def refine_wcs_scamp(
     wcs = None
 
     if res == 0 and os.path.exists(hdrname) and os.path.exists(xmlname):
-        log.info('SCAMP run successfully')
+        log.info("SCAMP run successfully")
 
         # xlsname contains the results from SCAMP
         diag = Table.read(xmlname, table_id=0)[0]
@@ -1682,7 +1681,7 @@ def refine_wcs_scamp(
             diag['NDeg_Reference'] < 3
             or chi2.sf(diag['Chi2_Reference'], df=diag['NDeg_Reference']) < 1e-3
         ):
-            log.info('It seems the fitting failed')
+            log.info("It seems the fitting failed")
         else:
             with open(hdrname, 'r') as f:
                 h1 = fits.Header.fromstring(
@@ -1703,7 +1702,7 @@ def refine_wcs_scamp(
 
                 if get_header:
                     # FIXME: should we really return raw / unfixed header here?..
-                    log.info('Returning raw header instead of WCS solution')
+                    log.info("Returning raw header instead of WCS solution")
                     wcs = h1
                 else:
                     wcs = WCS(h1)
@@ -1715,7 +1714,7 @@ def refine_wcs_scamp(
                              f"{h1.get('ASTRRMS2', 0) * 3600:%.2f}\"")
 
     else:
-        log.info('Error {res} running SCAMP')
+        log.info(f"Error {res} running SCAMP")
         wcs = None
 
     if _workdir is None:
@@ -1968,15 +1967,15 @@ def match(
         log.info(f"Adjusting background level using polynomial with bg_order = {bg_order}")
 
     if robust:
-        log.info('Using robust fitting')
+        log.info("Using robust fitting")
     else:
-        log.info('Using weighted fitting')
+        log.info("Using weighted fitting")
 
     if cat_color is not None:
         ccolor = np.ma.filled(cat_color[cidx], fill_value=np.nan)
         if use_color:
             X += make_series(ccolor, x, y, order=0)
-            log.info('Using color term')
+            log.info("Using color term")
     else:
         ccolor = np.zeros_like(cmag)
 
@@ -2053,7 +2052,7 @@ def match(
                  f"scale {np.sqrt(C.scale):%.2f} {scale_err:%.2f} - rms {intrinsic_rms:%.2f}")
 
         if not np.sum(~idx1):  # and new_intrinsic_rms <= intrinsic_rms:
-            log.info('Fitting converged')
+            log.info("Fitting converged")
             break
         else:
             idx[idx] &= idx1
@@ -2195,8 +2194,7 @@ def calibrate_photometry(
             sr = 1. / 3600
 
     log.info(f"Performing photometric calibration of {len(obj):%d} objects vs {len(cat):%d} catalogue stars")
-    log.info('Using %.1f arcsec matching radius, %s magnitude and spatial order %d'
-        % (sr * 3600, cat_col_mag, order))
+    log.info(f"Using {sr * 3600:% .1f} arcsec matching radius, {cat_col_mag:%s} magnitude and spatial order {order:%d}")
     if cat_col_mag1 and cat_col_mag2:
         log.info(f"Using ({cat_col_mag1:%s} - {cat_col_mag2:%s}) color for color term")
         color = cat[cat_col_mag1] - cat[cat_col_mag2]
@@ -2229,9 +2227,9 @@ def calibrate_photometry(
               **kwargs)
 
     if m:
-        log.info('Photometric calibration finished successfully.')
+        log.info("Photometric calibration finished successfully.")
         # if m['color_term']:
-        #     log.info('Color term is %.2f' % m['color_term'])
+        #     log.info("Color term is %.2f' % m['color_term'])
 
         m['cat_col_mag'] = cat_col_mag
         if cat_col_mag1 and cat_col_mag2:
@@ -2243,7 +2241,7 @@ def calibrate_photometry(
             obj['mag_calib_err'] = np.hypot(obj[obj_col_mag_err],
                                             m['zero_fn'](obj['x'], obj['y'], obj['mag'], get_err=True))
     else:
-        log.info('Photometric calibration failed')
+        log.info("Photometric calibration failed")
 
     return m
 
