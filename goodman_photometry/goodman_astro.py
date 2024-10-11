@@ -239,7 +239,7 @@ def goodman_wcs(header):
 
     except ValueError:
 
-        log.error(f"\"RA\" and \"DEC\" missing. Using \"TELRA\" and \"TELDEC\" instead.")
+        log.error("\"RA\" and \"DEC\" missing. Using \"TELRA\" and \"TELDEC\" instead.")
 
         coordinates = SkyCoord(ra=header['TELRA'], dec=header['TELDEC'],
                                unit=(u.hourangle, u.deg))
