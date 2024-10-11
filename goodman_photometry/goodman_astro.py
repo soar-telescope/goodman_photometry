@@ -25,7 +25,7 @@ from scipy.stats import binned_statistic_2d
 from scipy.stats import chi2
 
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 
 # (F Navarete)
@@ -470,13 +470,6 @@ def get_objects_sextractor(
     :returns: Either the astropy.table.Table object with detected objects, or a list with table of objects (first element) and checkimages (consecutive elements), if checkimages are requested.
     """
 
-    # Simple wrapper around print for logging in verbose mode only
-    log = (
-        (verbose if callable(verbose) else print)
-        if verbose
-        else lambda *args, **kwargs: None
-    )
-
     # Find the binary
     binname = None
 
@@ -491,10 +484,10 @@ def get_objects_sextractor(
             if binname is not None:
                 break
     if binname is None:
-        log("Can't find SExtractor binary")
+        log.critical("Can't find SExtractor binary")
         sys.exit("Can't find SExtractor binary")
     # else:
-    #     log("Using SExtractor binary at", binname)
+    #     log.info("Using SExtractor binary at", binname)
 
     workdir = (
         _workdir
@@ -639,15 +632,15 @@ def get_objects_sextractor(
     )
     if not verbose:
         cmd += ' > /dev/null 2>/dev/null'
-    log('Will run SExtractor like that:')
-    log(cmd)
+    log.debug('Will run SExtractor like that:')
+    log.debug(cmd)
 
     # Run the command!
 
     res = os.system(cmd)
 
     if res == 0 and os.path.exists(catname):
-        log('SExtractor run succeeded')
+        log.info('SExtractor run succeeded')
         obj = Table.read(catname, hdu=2)
         obj.meta.clear()  # Remove unnecessary entries from the metadata
 
@@ -739,10 +732,10 @@ def get_objects_sextractor(
 
         if catfile is not None:
             shutil.copyfile(catname, catfile)
-            log("Catalogue stored to", catfile)
+            log.info(f"Catalogue stored to {catfile}")
 
     else:
-        log("Error", res, "running SExtractor")
+        log.error(f"Error {res} running SExtractor")
 
     result = obj
 
@@ -753,7 +746,7 @@ def get_objects_sextractor(
             if os.path.exists(name):
                 result.append(fits.getdata(name))
             else:
-                log("Cannot find requested output checkimage file", name)
+                log.error(f"Cannot find requested output checkimage file {name}")
                 result.append(None)
 
     if _workdir is None:
@@ -848,69 +841,62 @@ def get_obs_time(header=None, filename=None, string=None, get_datetime=False, ve
 
     """
 
-    # Simple wrapper around print for logging in verbose mode only
-    log = (
-        (verbose if callable(verbose) else print)
-        if verbose
-        else lambda *args, **kwargs: None
-    )
-
     # Simple wrapper to display parsed value and convert it as necessary
     def convert_time(time):
         if isinstance(time, float):
             # Try to parse floating-point value as MJD or JD, depending on the value
             if time > 0 and time < 100000:
-                log('Assuming it is MJD')
+                log.debug('Assuming it is MJD')
                 time = Time(time, format='mjd')
             elif time > 2400000 and time < 2500000:
-                log('Assuming it is JD')
+                log.debug('Assuming it is JD')
                 time = Time(time, format='jd')
             else:
                 # Then it is probably an Unix time?..
-                log('Assuming it is Unix time')
+                log.debug('Assuming it is Unix time')
                 time = Time(time, format='unix')
 
         else:
             time = Time(time)
 
-        log('Time parsed as:', time.iso)
+        log.info(f"Time parsed as: {time.iso}")
         if get_datetime:
             return time.datetime
         else:
             return time
 
     if string:
-        log('Parsing user-provided time string:', string)
+        log.info(f"Parsing user-provided time string: {string}")
         try:
             return convert_time(dateutil.parser.parse(string))
         except dateutil.parser.ParserError as err:
-            log('Could not parse user-provided string:', err)
+            log.error('Could not parse user-provided string:', err)
             return None
 
     if header is None:
-        log('Loading FITS header from', filename)
+        log.info(f"Loading FITS header from {filename}")
         header = fits.getheader(filename)
 
     for dkey in ['DATE-OBS', 'DATE', 'TIME-OBS', 'UT', 'MJD', 'JD']:
         if dkey in header:
-            log('Found ' + dkey + ':', header[dkey])
+            log.debug('Found ' + dkey + ':', header[dkey])
             # First try to parse standard ISO time
             try:
                 return convert_time(header[dkey])
             except:
-                log('Could not parse ' + dkey + ' using Astropy parser')
+                log.error(f"Could not parse {dkey} using Astropy parser")
 
             for tkey in ['TIME-OBS', 'UT']:
                 if tkey in header:
-                    log('Found ' + tkey + ':', header[tkey])
+                    log.info(f"Found {tkey}: {header[tkey]}")
                     try:
                         return convert_time(
                             dateutil.parser.parse(header[dkey] + ' ' + header[tkey])
                         )
                     except dateutil.parser.ParserError as err:
-                        log('Could not parse ' + dkey + ' + ' + tkey + ':', err)
+                        log.error(f"Could not parse {dkey} {tkey}: {err}")
 
-    log('Unsupported FITS header time format')
+    log.error('Unsupported FITS header time format')
 
     return None
 
@@ -1286,14 +1272,6 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
     :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
     :returns: astropy.table.Table with catalogue as returned by Vizier, with some additional columns added for supported catalogues.
     """
-
-    # Simple Wrapper around print for logging in verbose mode only
-    log = (
-        (verbose if callable(verbose) else print)
-        if verbose
-        else lambda *args, **kwargs: None
-    )
-
     # TODO: add positional errors
 
     if catalog in catalogs:
@@ -1311,9 +1289,9 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
         name = catalog
         columns = ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000'] + extra
 
-    log('Requesting from VizieR:', vizier_id, 'columns:', columns)
-    log('Center: %.3f %.3f' % (ra0, dec0), 'radius: %.3f' % sr0)
-    log('Filters:', filters)
+    log.info(f"Requesting from VizieR: {vizier_id} columns: {columns}")
+    log.info(f"Center: {ra0:% .3f} {dec0:% .3f} radius:{sr0:% .3f}")
+    log.info(f"Filters: {filters}")
 
     vizier = Vizier(row_limit=limit, columns=columns, column_filters=filters)
 
@@ -1328,14 +1306,14 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
         )
 
         if not cats or not len(cats) == 1:
-            log('Error requesting catalogue', catalog)
+            log.info(f"Error requesting catalogue {catalog}")
             return None
 
     cat = cats[0]
     cat.meta['vizier_id'] = vizier_id
     cat.meta['name'] = name
 
-    log('Got', len(cat), 'entries with', len(cat.colnames), 'columns')
+    log.info(f"Got {len(cat)} entries with {len(cat.colnames)} columns")
 
     # Fix _RAJ2000/_DEJ2000
     if (
@@ -1346,12 +1324,12 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
         cat.rename_columns(['_RAJ2000', '_DEJ2000'], ['RAJ2000', 'DEJ2000'])
 
     if get_distance and 'RAJ2000' in cat.colnames and 'DEJ2000' in cat.colnames:
-        log("Augmenting the catalogue with distances from field center")
+        log.info("Augmenting the catalogue with distances from field center")
         cat['_r'] = spherical_distance(ra0, dec0, cat['RAJ2000'], cat['DEJ2000'])
 
     # Augment catalogue with additional bandpasses
     if catalog == 'gaiadr2':
-        log("Augmenting the catalogue with Johnson-Cousins photometry")
+        log.info("Augmenting the catalogue with Johnson-Cousins photometry")
 
         # My simple Gaia DR2 to Johnson conversion based on Stetson standards (this is from STDPipe - GaiaDR2 transformations do not have B filter)
         pB = [-0.05927724559795761,
@@ -1525,14 +1503,6 @@ def refine_wcs_scamp(
     :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
     :returns: Refined astrometric solution, or FITS header if :code:`get_header=True`
     """
-
-    # Simple wrapper around print for logging in verbose mode only
-    log = (
-        (verbose if callable(verbose) else print)
-        if verbose
-        else lambda *args, **kwargs: None
-    )
-
     # Find the binary
     binname = None
 
@@ -1548,10 +1518,10 @@ def refine_wcs_scamp(
                 break
 
     if binname is None:
-        log("Can't find SCAMP binary")
+        log.critical("Can't find SCAMP binary")
         return None
     # else:
-    #     log("Using SCAMP binary at", binname)
+    #     log.info("Using SCAMP binary at", binname)
 
     workdir = (
         _workdir
@@ -1579,10 +1549,10 @@ def refine_wcs_scamp(
 
         # Ensure the header is in TPV convention, as SCAMP does not support SIP
         if wcs.sip is not None:
-            log("Converting the header from SIP to TPV convention")
+            log.info("Converting the header from SIP to TPV convention")
             header = wcs_sip2pv(header)
     else:
-        log("Can't operate without initial WCS")
+        log.error("Can't operate without initial WCS")
         return None
 
     # Dummy config filename, to prevent loading from current dir
@@ -1638,7 +1608,7 @@ def refine_wcs_scamp(
         if type(cat) is str:
             # Match with network catalogue by name
             opts['ASTREF_CATALOG'] = cat
-            log('Using', cat, 'as a network catalogue')
+            log.info(f"Using {cat} as a network catalogue")
         else:
             # Match with user-provided catalogue
             t_cat = Table(
@@ -1681,9 +1651,9 @@ def refine_wcs_scamp(
 
             opts['ASTREF_CATALOG'] = 'FILE'
             opts['ASTREFCAT_NAME'] = catname
-            log('Using user-provided local catalogue')
+            log.info('Using user-provided local catalogue')
     else:
-        log('Using default settings for network catalogue')
+        log.info('Using default settings for network catalogue')
 
     # Build the command line
     command = (
@@ -1691,8 +1661,8 @@ def refine_wcs_scamp(
     )
     if not verbose:
         command += ' > /dev/null 2>/dev/null'
-    log('Will run SCAMP like that:')
-    log(command)
+    log.info('Will run SCAMP like that:')
+    log.info(command)
 
     # Run the command!
 
@@ -1701,19 +1671,18 @@ def refine_wcs_scamp(
     wcs = None
 
     if res == 0 and os.path.exists(hdrname) and os.path.exists(xmlname):
-        log('SCAMP run successfully')
+        log.info('SCAMP run successfully')
 
         # xlsname contains the results from SCAMP
         diag = Table.read(xmlname, table_id=0)[0]
 
-        log('%d matches, chi2 %.1f' % (diag['NDeg_Reference'], diag['Chi2_Reference']))
-        print('%d matches, chi2 %.1f' % (diag['NDeg_Reference'], diag['Chi2_Reference']))
+        log.info(f"{diag['NDeg_Reference']:%d} matches, chi2 {diag['Chi2_Reference']:% .1f}")
         # FIXME: is df correct here?..
         if (
             diag['NDeg_Reference'] < 3
             or chi2.sf(diag['Chi2_Reference'], df=diag['NDeg_Reference']) < 1e-3
         ):
-            log('It seems the fitting failed')
+            log.info('It seems the fitting failed')
         else:
             with open(hdrname, 'r') as f:
                 h1 = fits.Header.fromstring(
@@ -1722,27 +1691,19 @@ def refine_wcs_scamp(
 
                 # Sometimes SCAMP returns TAN type solution even despite PV keywords present
                 if h1['CTYPE1'] != 'RA---TPV' and 'PV1_0' in h1.keys():
-                    log(
-                        'Got WCS solution with CTYPE1 =',
-                        h1['CTYPE1'],
-                        ' and PV keywords, fixing it',
-                    )
+                    log.info(f"Got WCS solution with CTYPE1 = {h1['CTYPE1']} and PV keywords, fixing it")
                     h1['CTYPE1'] = 'RA---TPV'
                     h1['CTYPE2'] = 'DEC--TPV'
                 # .. while sometimes it does the opposite
                 elif h1['CTYPE1'] == 'RA---TPV' and 'PV1_0' not in h1.keys():
-                    log(
-                        'Got WCS solution with CTYPE1 =',
-                        h1['CTYPE1'],
-                        ' and without PV keywords, fixing it',
-                    )
+                    log.info(f"Got WCS solution with CTYPE1 = {h1['CTYPE1']} and PV keywords, fixing it")
                     h1['CTYPE1'] = 'RA---TAN'
                     h1['CTYPE2'] = 'DEC--TAN'
                     h1 = WCS(h1).to_header(relax=True)
 
                 if get_header:
                     # FIXME: should we really return raw / unfixed header here?..
-                    log('Returning raw header instead of WCS solution')
+                    log.info('Returning raw header instead of WCS solution')
                     wcs = h1
                 else:
                     wcs = WCS(h1)
@@ -1750,13 +1711,11 @@ def refine_wcs_scamp(
                     if update:
                         obj['ra'], obj['dec'] = wcs.all_pix2world(obj['x'], obj['y'], 0)
 
-                    log(
-                        'Astrometric accuracy: %.2f" %.2f"'
-                        % (h1.get('ASTRRMS1', 0) * 3600, h1.get('ASTRRMS2', 0) * 3600)
-                    )
+                    log.info(f"Astrometric accuracy: {h1.get('ASTRRMS1', 0) * 3600:%.2f}\" "
+                             f"{h1.get('ASTRRMS2', 0) * 3600:%.2f}\"")
 
     else:
-        log('Error', res, 'running SCAMP')
+        log.info('Error {res} running SCAMP')
         wcs = None
 
     if _workdir is None:
@@ -1972,24 +1931,11 @@ def match(
 
     """
 
-    # Simple wrapper around print for logging in verbose mode only
-    log = (
-        (verbose if callable(verbose) else print)
-        if verbose
-        else lambda *args, **kwargs: None
-    )
-
     oidx, cidx, dist = spherical_match(obj_ra, obj_dec, cat_ra, cat_dec, sr)
 
-    log(
-        len(dist),
-        'initial matches between',
-        len(obj_ra),
-        'objects and',
-        len(cat_ra),
-        'catalogue stars, sr = %.2f arcsec' % (sr * 3600),
-    )
-    log('Median separation is %.2f arcsec' % (np.median(dist) * 3600))
+    log.info(f"{len(dist)} initial matches between {len(obj_ra)} objects and {len(cat_ra)} "
+             f"catalogue stars, sr = {sr * 3600:% .2f} arcsec")
+    log.info(f"Median separation is {np.median(dist) * 3600:%.2f} arcsec")
 
     omag = np.ma.filled(obj_mag[oidx], fill_value=np.nan)
     omag_err = np.ma.filled(obj_magerr[oidx], fill_value=np.nan)
@@ -2014,23 +1960,23 @@ def match(
 
     # Regressor
     X = make_series(1.0, x, y, order=spatial_order)
-    log('Fitting the model with spatial_order =', spatial_order)
+    log.info(f"Fitting the model with spatial_order = {spatial_order}")
 
     if bg_order is not None:
         # Spatially varying additive flux component, linearized in magnitudes
         X += make_series(-2.5 / np.log(10) / 10 ** (-0.4 * omag), x, y, order=bg_order)
-        log('Adjusting background level using polynomial with bg_order =', bg_order)
+        log.info(f"Adjusting background level using polynomial with bg_order = {bg_order}")
 
     if robust:
-        log('Using robust fitting')
+        log.info('Using robust fitting')
     else:
-        log('Using weighted fitting')
+        log.info('Using weighted fitting')
 
     if cat_color is not None:
         ccolor = np.ma.filled(cat_color[cidx], fill_value=np.nan)
         if use_color:
             X += make_series(ccolor, x, y, order=0)
-            log('Using color term')
+            log.info('Using color term')
     else:
         ccolor = np.zeros_like(cmag)
 
@@ -2063,7 +2009,7 @@ def match(
     if sn is not None:
         idx0 &= omag_err < 1 / sn
 
-    log('%d objects pass initial quality cuts' % np.sum(idx0))
+    log.info(f"{np.sum(idx0):%d} objects pass initial quality cuts")
 
     idx = idx0.copy()
 
@@ -2073,10 +2019,7 @@ def match(
 
     for iter in range(niter):
         if np.sum(idx) < Nparams + 1:
-            log(
-                "Fit failed - %d objects remaining for fitting %d parameters"
-                % (np.sum(idx), Nparams)
-            )
+            log.info(f"Fit failed - {np.sum(idx):%d} objects remaining for fitting {Nparams:%d} parameters")
             return None
 
         if robust:
@@ -2104,33 +2047,20 @@ def match(
         else:
             idx1 = np.ones_like(idx[idx])
 
-        log(
-            'Iteration',
-            iter,
-            ':',
-            np.sum(idx),
-            '/',
-            len(idx),
-            '- rms',
-            '%.2f' % np.std((zero - zero_model)[idx0]),
-            '%.2f' % np.std((zero - zero_model)[idx]),
-            '- normed',
-            '%.2f' % np.std((zero - zero_model)[idx] / zero_err[idx]),
-            '%.2f' % np.std((zero - zero_model)[idx] / total_err[idx]),
-            '- scale %.2f %.2f' % (np.sqrt(C.scale), scale_err),
-            '- rms',
-            '%.2f' % intrinsic_rms,
-        )
+        log.info(f"Iteration {iter}:{np.sum(idx)}/{len(idx)} - "
+                 f"rms {np.std((zero - zero_model)[idx0]):%.2f} {np.std((zero - zero_model)[idx]):%.2f} - "
+                 f"normed {np.std((zero - zero_model)[idx] / zero_err[idx]):%.2f} {np.std((zero - zero_model)[idx] / total_err[idx]):%.2f} - "
+                 f"scale {np.sqrt(C.scale):%.2f} {scale_err:%.2f} - rms {intrinsic_rms:%.2f}")
 
         if not np.sum(~idx1):  # and new_intrinsic_rms <= intrinsic_rms:
-            log('Fitting converged')
+            log.info('Fitting converged')
             break
         else:
             idx[idx] &= idx1
 
-    log(np.sum(idx), 'good matches')
+    log.info(f"{np.sum(idx)} good matches")
     if max_intrinsic_rms > 0:
-        log('Intrinsic scatter is %.2f' % intrinsic_rms)
+        log.info(f"Intrinsic scatter is {intrinsic_rms:% .2f}")
 
     # Export the model
     def zero_fn(xx, yy, mag=None, get_err=False, add_intrinsic_rms=False):
@@ -2166,7 +2096,7 @@ def match(
         if bg_order is not None:
             X += make_series(order=bg_order)
         color_term = C.params[len(X):][0]
-        log('Color term is %.2f' % color_term)
+        log.info(f"Color term is {color_term:%.2f}")
     else:
         color_term = None
 
@@ -2256,13 +2186,6 @@ def calibrate_photometry(
     :returns: The dictionary with photometric results, as returned by :func:`stdpipe.photometry.match`.
 
     """
-    # Simple wrapper around print for logging in verbose mode only
-    log = (
-        (verbose if callable(verbose) else print)
-        if verbose
-        else lambda *args, **kwargs: None
-    )
-
     if sr is None:
         if pixscale is not None:
             # Matching radius of half FWHM
@@ -2271,12 +2194,11 @@ def calibrate_photometry(
             # Fallback value of 1 arcsec, should be sensible for most catalogues
             sr = 1. / 3600
 
-    log('Performing photometric calibration of %d objects vs %d catalogue stars'
-        % (len(obj), len(cat)))
-    log('Using %.1f arcsec matching radius, %s magnitude and spatial order %d'
+    log.info(f"Performing photometric calibration of {len(obj):%d} objects vs {len(cat):%d} catalogue stars")
+    log.info('Using %.1f arcsec matching radius, %s magnitude and spatial order %d'
         % (sr * 3600, cat_col_mag, order))
     if cat_col_mag1 and cat_col_mag2:
-        log('Using (%s - %s) color for color term' % (cat_col_mag1, cat_col_mag2))
+        log.info(f"Using ({cat_col_mag1:%s} - {cat_col_mag2:%s}) color for color term")
         color = cat[cat_col_mag1] - cat[cat_col_mag2]
     else:
         color = None
@@ -2307,9 +2229,9 @@ def calibrate_photometry(
               **kwargs)
 
     if m:
-        log('Photometric calibration finished successfully.')
+        log.info('Photometric calibration finished successfully.')
         # if m['color_term']:
-        #     log('Color term is %.2f' % m['color_term'])
+        #     log.info('Color term is %.2f' % m['color_term'])
 
         m['cat_col_mag'] = cat_col_mag
         if cat_col_mag1 and cat_col_mag2:
@@ -2321,7 +2243,7 @@ def calibrate_photometry(
             obj['mag_calib_err'] = np.hypot(obj[obj_col_mag_err],
                                             m['zero_fn'](obj['x'], obj['y'], obj['mag'], get_err=True))
     else:
-        log('Photometric calibration failed')
+        log.info('Photometric calibration failed')
 
     return m
 
