@@ -2008,7 +2008,7 @@ def match(
     if sn is not None:
         idx0 &= omag_err < 1 / sn
 
-    log.info(f"{np.sum(idx0):%d} objects pass initial quality cuts")
+    log.info(f"{np.sum(idx0):d} objects pass initial quality cuts")
 
     idx = idx0.copy()
 
@@ -2018,7 +2018,7 @@ def match(
 
     for iter in range(niter):
         if np.sum(idx) < Nparams + 1:
-            log.info(f"Fit failed - {np.sum(idx):%d} objects remaining for fitting {Nparams:%d} parameters")
+            log.info(f"Fit failed - {np.sum(idx):d} objects remaining for fitting {Nparams:d} parameters")
             return None
 
         if robust:
@@ -2193,8 +2193,8 @@ def calibrate_photometry(
             # Fallback value of 1 arcsec, should be sensible for most catalogues
             sr = 1. / 3600
 
-    log.info(f"Performing photometric calibration of {len(obj):%d} objects vs {len(cat):%d} catalogue stars")
-    log.info(f"Using {sr * 3600:.1f} arcsec matching radius, {cat_col_mag:%s} magnitude and spatial order {order:d}")
+    log.info(f"Performing photometric calibration of {len(obj):d} objects vs {len(cat):d} catalogue stars")
+    log.info(f"Using {sr * 3600:.1f} arcsec matching radius, {cat_col_mag:s} magnitude and spatial order {order:d}")
     if cat_col_mag1 and cat_col_mag2:
         log.info(f"Using ({cat_col_mag1:s} - {cat_col_mag2:s}) color for color term")
         color = cat[cat_col_mag1] - cat[cat_col_mag2]

@@ -31,7 +31,7 @@ def setup_logging(debug=False, generic=False, log_filename='goodman_photometry_l
                         format=log_format,
                         datefmt=date_format)
 
-    log = logging.getLogger(__name__)
+    log = logging.getLogger()
 
     file_handler = logging.FileHandler(filename=log_filename)
     file_handler.setFormatter(fmt=formatter)

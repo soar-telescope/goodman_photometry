@@ -324,6 +324,7 @@ def goodman_astrometry():
     args = get_astrometry_args()
 
     setup_logging(debug=args.debug, log_filename=args.log_filename)
+    log = logging.getLogger()
     astrometry = Astrometry(
         catalog_name=args.catalog_name,
         magnitude_threshold=args.magnitude_threshold,
