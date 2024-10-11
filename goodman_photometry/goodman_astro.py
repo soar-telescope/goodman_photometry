@@ -1289,7 +1289,7 @@ def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extr
         columns = ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000'] + extra
 
     log.info(f"Requesting from VizieR: {vizier_id} columns: {columns}")
-    log.info(f"Center: {ra0:% .3f} {dec0:% .3f} radius:{sr0:% .3f}")
+    log.info(f"Center: {ra0:.3f} {dec0:.3f} radius:{sr0:.3f}")
     log.info(f"Filters: {filters}")
 
     vizier = Vizier(row_limit=limit, columns=columns, column_filters=filters)
@@ -1675,7 +1675,7 @@ def refine_wcs_scamp(
         # xlsname contains the results from SCAMP
         diag = Table.read(xmlname, table_id=0)[0]
 
-        log.info(f"{diag['NDeg_Reference']:%d} matches, chi2 {diag['Chi2_Reference']:% .1f}")
+        log.info(f"{diag['NDeg_Reference']:d} matches, chi2 {diag['Chi2_Reference']:.1f}")
         # FIXME: is df correct here?..
         if (
             diag['NDeg_Reference'] < 3
@@ -1710,8 +1710,8 @@ def refine_wcs_scamp(
                     if update:
                         obj['ra'], obj['dec'] = wcs.all_pix2world(obj['x'], obj['y'], 0)
 
-                    log.info(f"Astrometric accuracy: {h1.get('ASTRRMS1', 0) * 3600:%.2f}\" "
-                             f"{h1.get('ASTRRMS2', 0) * 3600:%.2f}\"")
+                    log.info(f"Astrometric accuracy: {h1.get('ASTRRMS1', 0) * 3600:.2f}\" "
+                             f"{h1.get('ASTRRMS2', 0) * 3600:.2f}\"")
 
     else:
         log.info(f"Error {res} running SCAMP")
@@ -1933,8 +1933,8 @@ def match(
     oidx, cidx, dist = spherical_match(obj_ra, obj_dec, cat_ra, cat_dec, sr)
 
     log.info(f"{len(dist)} initial matches between {len(obj_ra)} objects and {len(cat_ra)} "
-             f"catalogue stars, sr = {sr * 3600:% .2f} arcsec")
-    log.info(f"Median separation is {np.median(dist) * 3600:%.2f} arcsec")
+             f"catalogue stars, sr = {sr * 3600:.2f} arcsec")
+    log.info(f"Median separation is {np.median(dist) * 3600:.2f} arcsec")
 
     omag = np.ma.filled(obj_mag[oidx], fill_value=np.nan)
     omag_err = np.ma.filled(obj_magerr[oidx], fill_value=np.nan)
@@ -2047,9 +2047,9 @@ def match(
             idx1 = np.ones_like(idx[idx])
 
         log.info(f"Iteration {iter}:{np.sum(idx)}/{len(idx)} - "
-                 f"rms {np.std((zero - zero_model)[idx0]):%.2f} {np.std((zero - zero_model)[idx]):%.2f} - "
-                 f"normed {np.std((zero - zero_model)[idx] / zero_err[idx]):%.2f} {np.std((zero - zero_model)[idx] / total_err[idx]):%.2f} - "
-                 f"scale {np.sqrt(C.scale):%.2f} {scale_err:%.2f} - rms {intrinsic_rms:%.2f}")
+                 f"rms {np.std((zero - zero_model)[idx0]):.2f} {np.std((zero - zero_model)[idx]):.2f} - "
+                 f"normed {np.std((zero - zero_model)[idx] / zero_err[idx]):.2f} {np.std((zero - zero_model)[idx] / total_err[idx]):.2f} - "
+                 f"scale {np.sqrt(C.scale):.2f} {scale_err:.2f} - rms {intrinsic_rms:.2f}")
 
         if not np.sum(~idx1):  # and new_intrinsic_rms <= intrinsic_rms:
             log.info("Fitting converged")
@@ -2059,7 +2059,7 @@ def match(
 
     log.info(f"{np.sum(idx)} good matches")
     if max_intrinsic_rms > 0:
-        log.info(f"Intrinsic scatter is {intrinsic_rms:% .2f}")
+        log.info(f"Intrinsic scatter is {intrinsic_rms:.2f}")
 
     # Export the model
     def zero_fn(xx, yy, mag=None, get_err=False, add_intrinsic_rms=False):
@@ -2095,7 +2095,7 @@ def match(
         if bg_order is not None:
             X += make_series(order=bg_order)
         color_term = C.params[len(X):][0]
-        log.info(f"Color term is {color_term:%.2f}")
+        log.info(f"Color term is {color_term:.2f}")
     else:
         color_term = None
 
@@ -2194,9 +2194,9 @@ def calibrate_photometry(
             sr = 1. / 3600
 
     log.info(f"Performing photometric calibration of {len(obj):%d} objects vs {len(cat):%d} catalogue stars")
-    log.info(f"Using {sr * 3600:% .1f} arcsec matching radius, {cat_col_mag:%s} magnitude and spatial order {order:%d}")
+    log.info(f"Using {sr * 3600:.1f} arcsec matching radius, {cat_col_mag:%s} magnitude and spatial order {order:d}")
     if cat_col_mag1 and cat_col_mag2:
-        log.info(f"Using ({cat_col_mag1:%s} - {cat_col_mag2:%s}) color for color term")
+        log.info(f"Using ({cat_col_mag1:s} - {cat_col_mag2:s}) color for color term")
         color = cat[cat_col_mag1] - cat[cat_col_mag2]
     else:
         color = None
@@ -2229,7 +2229,7 @@ def calibrate_photometry(
     if m:
         log.info("Photometric calibration finished successfully.")
         # if m['color_term']:
-        #     log.info("Color term is %.2f' % m['color_term'])
+        #     log.info("Color term is .2f' % m['color_term'])
 
         m['cat_col_mag'] = cat_col_mag
         if cat_col_mag1 and cat_col_mag2:
