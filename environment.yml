@@ -1,0 +1,10 @@
+name: goodman_photometry
+channels:
+  - defaults
+dependencies:
+  - pip
+  - pip:
+      - asciitree==0.3.3
+      - astroplan==0.10.1
+      - astropy==6.1.2
+      - astropy-healpix==1.0.3

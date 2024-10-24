@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goodman_photometry"
+dynamic = ["version"]
+description = "Pipeline for reducing Goodman HTS data."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+keywords = [
+  "soar",
+  "pipelines",
+  "astronomy",
+  "images",
+  "astrometry",
+  "photometry"
+]
+
+authors = [
+  {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "},
+]
+maintainers = [
+  {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "}
+]
+
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Environment :: Console',
+  'Intended Audience :: Developers',
+  'Intended Audience :: Education',
+  'Intended Audience :: Science/Research',
+  'License :: OSI Approved :: BSD License',
+  'Programming Language :: Python :: 3.8',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+  'Programming Language :: Python :: 3.11',
+  'Programming Language :: Python :: 3.12',
+  'Natural Language :: English',
+  'Operating System :: POSIX :: Linux',
+  'Operating System :: POSIX :: Other',
+  'Operating System :: MacOS :: MacOS X',
+  'Topic :: Scientific/Engineering :: Astronomy',
+  'Topic :: Scientific/Engineering :: Information Analysis',
+  'Topic :: Software Development :: Libraries :: Python Modules',
+]
+
+dependencies = [
+  "astropy",
+  "astroplan",
+  "ccdproc",
+  "cython",
+  "matplotlib",
+  "numpy",
+  "packaging",
+  "pandas",
+  "requests",
+  "scipy",
+  "statsmodels",
+  "astroquery"
+
+]
+
+[project.urls]
+"Homepage" = "https://github.com/navarete/goodman_photometry"
+"Bug Reports" = "https://github.com/navarete/goodman_photometry/issues"
+"Source" = "https://github.com/navarete/goodman_photometry"
+
+[project.scripts]
+redastrometry = "goodman_photometry.astrometry:goodman_astrometry"
+redphotometry = "goodman_photometry.photometry:goodman_photometry"
+
+
+[tool.setuptools]
+packages = ["goodman_photometry"]
+
+
+
+[tool.setuptools_scm]
+version_file = "goodman_photometry/version.py"
