@@ -1,4 +1,8 @@
 # goodman_photometry
+
+[![Upload to PYPI](https://github.com/soar-telescope/goodman_photometry/actions/workflows/python-publish.yml/badge.svg)](https://github.com/soar-telescope/goodman_photometry/actions/workflows/python-publish.yml)
+[![pypi](https://img.shields.io/pypi/v/goodman_photometry.svg?style=flat)](https://pypi.org/project/goodman-photometry/)
+
 Routines to perform automatic astrometry and photometry of goodman imaging observations
 
 The codes were initially based on STDPipe (https://github.com/karpov-sv/stdpipe) and adapted for Goodman HST.

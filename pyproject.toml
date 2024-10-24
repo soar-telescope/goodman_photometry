@@ -22,7 +22,8 @@ authors = [
   {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "},
 ]
 maintainers = [
-  {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "}
+  {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "},
+  {name = "Simón Torres", email = "simon.torres@noirlab.edu "}
 ]
 
 classifiers = [
@@ -63,9 +64,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/navarete/goodman_photometry"
-"Bug Reports" = "https://github.com/navarete/goodman_photometry/issues"
-"Source" = "https://github.com/navarete/goodman_photometry"
+"Homepage" = "https://github.com/soar-telescope/goodman_photometry"
+"Bug Reports" = "https://github.com/soar-telescope/goodman_photometry/issues"
+"Source" = "https://github.com/soar-telescope/goodman_photometry"
 
 [project.scripts]
 redastrometry = "goodman_photometry.astrometry:goodman_astrometry"
