@@ -102,6 +102,10 @@ def get_astrometry_args(arguments=None):
         print(__version__)
         sys.exit(0)
 
+    if not args.filename:
+        parser.print_help()
+        parser.exit(0, "\nPlease specify a filename to process.\n")
+
     return args
 
 
@@ -163,5 +167,9 @@ def get_photometry_args(arguments=None):
     if args.version:
         print(__version__)
         sys.exit(0)
+
+    if not args.filename:
+        parser.print_help()
+        parser.exit(0, "\nPlease provide a filename to process.\n")
 
     return args
