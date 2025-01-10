@@ -32,7 +32,10 @@ plt.rc('image', origin='lower', cmap='Blues_r')
 
 
 class Astrometry(object):
+    """Performs astrometry operations on a FITS file.
 
+    Using sextractor
+    """
     def __init__(self,
                  catalog_name='gaiadr2',
                  magnitude_threshold=17,
