@@ -27,45 +27,53 @@ from scipy.stats import chi2
 log = logging.getLogger()
 
 
-# (F Navarete)
-def get_info(header):
+def extract_observation_metadata(header):
     """
-      reads a fits header and returns specific keywords used during the execution of the codes.
+    Extracts observation metadata from a FITS header.
 
-        header (astropy.io.fits.Header): FITS header.
+    Args:
+        header (astropy.io.fits.Header): The FITS header containing observation metadata.
 
-      returns:
-        fname          (str): filter name
-        binning        (int): binning factor (single element). For imaging mode, the full binning information should be 'binning'x'binning'
-        time           (str): observing time
-        gain         (float): gain value (e-/ADU)
-        rdnoise      (float): read noise (e-)
-        satur_thresh (float): saturation threshold based on the readout mode (in ADU)
-        exptime      (float): exposure time (in sec)
+    Returns:
+        tuple: A tuple containing:
+            - filter_name (str): The active filter name.
+            - serial_binning (int): Binning factor in the serial direction.
+            - parallel_binning (int): Binning factor in the parallel direction.
+            - observation_time (str): The observation time.
+            - gain (float): The detector gain (e-/ADU).
+            - read_noise (float): The read noise (e-).
+            - saturation_threshold (float): The saturation threshold (in ADU),
+              calculated based on the readout mode.
+            - exposure_time (float): The exposure time (in seconds).
 
+    Raises:
+        ValueError: If the observation mode is not imaging.
     """
+    # Check if observations are in imaging mode; raise an error if not.
+    wavelength_mode = header.get('WAVMODE')
+    check_wavelength_mode(wavelength_mode)
 
-    # check if observations are done in imaging mode. if not, exit the code
-    wavmode = header.get('WAVMODE')
-    check_wavmode(wavmode)
+    # Determine the active filter name, considering both filter wheels.
+    primary_filter = header.get('FILTER')
+    secondary_filter = header.get('FILTER2')
+    filter_name = primary_filter if primary_filter != "NO_FILTER" else secondary_filter
 
-    # get filter keywords from header
-    fname1 = header.get('FILTER')
-    fname2 = header.get('FILTER2')
-    # set the name of the active filter (deal with both filter wheels in case the first one has no filter)
-    fname = fname1 if fname1 != "NO_FILTER" else fname2
+    # Extract binning information.
+    serial_binning, parallel_binning = (int(value) for value in header['CCDSUM'].split())
 
-    # get binning information
-    serial_binning, parallel_binning = [int(b) for b in header['CCDSUM'].split()]
-    time = get_obs_time(header, verbose=False)
+    # Retrieve observation time.
+    observation_time = get_observation_time(header, verbose=False)
 
+    # Get gain, read noise, and calculate saturation threshold.
     gain = header.get('GAIN')
-    rdnoise = header.get('RDNOISE')
-    satur_thresh = get_saturation(gain, rdnoise)
+    read_noise = header.get('RDNOISE')
+    saturation_threshold = calculate_saturation_threshold(gain, read_noise)
 
-    exptime = header.get('EXPTIME')
+    # Retrieve exposure time.
+    exposure_time = header.get('EXPTIME')
 
-    return fname, serial_binning, parallel_binning, time, gain, rdnoise, satur_thresh, exptime
+    return (filter_name, serial_binning, parallel_binning, observation_time,
+            gain, read_noise, saturation_threshold, exposure_time)
 
 
 # (F Navarete)
