@@ -76,33 +76,34 @@ def extract_observation_metadata(header):
             gain, read_noise, saturation_threshold, exposure_time)
 
 
-# (F Navarete)
-def get_saturation(gain, rdnoise):
+def calculate_saturation_threshold(gain_value, read_noise_value):
     """
-      Simple function to estimate the saturation threshold based on the readout mode.
+    Estimates the saturation threshold based on the readout mode.
 
-        gain         (float): gain value (e-/ADU)
-        rdnoise      (float): read noise (e-)
+    Args:
+        gain_value (float): The detector gain (e-/ADU).
+        read_noise_value (float): The detector read noise (e-).
 
-      returns:
-        satur_thresh (float): saturation threshold based on the readout mode (in ADU)
-
+    Returns:
+        float: The saturation threshold in ADU, estimated based on the provided
+        gain and read noise values.
     """
-    if gain == 1.54 and rdnoise == 3.45:
-        satur_thresh = 50000  # 100kHzATTN3
-    elif gain == 3.48 and rdnoise == 5.88:
-        satur_thresh = 25000  # 100kHzATTN2
-    elif gain == 1.48 and rdnoise == 3.89:
-        satur_thresh = 50000  # 344kHzATTN3
-    elif gain == 3.87 and rdnoise == 7.05:
-        satur_thresh = 25000  # 344kHzATTN0
-    elif gain == 1.47 and rdnoise == 5.27:
-        satur_thresh = 50000  # 750kHzATTN2
-    elif gain == 3.77 and rdnoise == 8.99:
-        satur_thresh = 25000  # 750kHzATTN0
+    if gain_value == 1.54 and read_noise_value == 3.45:
+        saturation_threshold = 50000  # 100kHzATTN3
+    elif gain_value == 3.48 and read_noise_value == 5.88:
+        saturation_threshold = 25000  # 100kHzATTN2
+    elif gain_value == 1.48 and read_noise_value == 3.89:
+        saturation_threshold = 50000  # 344kHzATTN3
+    elif gain_value == 3.87 and read_noise_value == 7.05:
+        saturation_threshold = 25000  # 344kHzATTN0
+    elif gain_value == 1.47 and read_noise_value == 5.27:
+        saturation_threshold = 50000  # 750kHzATTN2
+    elif gain_value == 3.77 and read_noise_value == 8.99:
+        saturation_threshold = 25000  # 750kHzATTN0
     else:
-        satur_thresh = 50000
-    return satur_thresh
+        saturation_threshold = 50000  # Default value
+
+    return saturation_threshold
 
 
 # (F Navarete)
