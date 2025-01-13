@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
-from goodman_astro import (bpm_mask,
+from .goodman_astro import (bpm_mask,
                            calibrate_photometry,
                            check_phot,
                            check_wcs,
@@ -16,15 +16,15 @@ from goodman_astro import (bpm_mask,
                            filter_sets,
                            get_cat_vizier,
                            get_frame_center,
-                           get_info,
+                           extract_observation_metadata,
                            get_objects_sextractor,
                            get_pixscale,
                            plot_photometric_match,
                            plot_photcal,
                            phot_table,
                            phot_zeropoint)
-from goodman_astro import plot_image
-from utils import get_photometry_args, setup_logging
+from .goodman_astro import plot_image
+from .utils import get_photometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
@@ -104,7 +104,7 @@ class Photometry(object):
          gain,
          read_noise,
          saturation_threshold,
-         exposure_time) = get_info(header)
+         exposure_time) = extract_observation_metadata(header)
 
         self.log.info(f"Filter={self.filter_name}"
                       f" Exposure Time={exposure_time:.2f}"
