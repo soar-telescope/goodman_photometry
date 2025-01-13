@@ -9,7 +9,7 @@ from astropy.io import fits as fits
 from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
-from goodman_astro import (get_info,
+from .goodman_astro import (extract_observation_metadata,
                            bpm_mask,
                            check_wcs,
                            clear_wcs,
@@ -22,7 +22,7 @@ from goodman_astro import (get_info,
                            goodman_wcs,
                            plot_image,
                            refine_wcs_scamp)
-from utils import get_astrometry_args, setup_logging
+from .utils import get_astrometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
 warnings.simplefilter(action='ignore', category=VerifyWarning)
@@ -81,7 +81,7 @@ class Astrometry(object):
          self.gain,
          read_noise,
          self.saturation_threshold,
-         exposure_time) = get_info(self.header)
+         exposure_time) = extract_observation_metadata(self.header)
 
         self.log.debug(f"Processing {self.filename}: "
                        f"filter {self.filter_name}, "

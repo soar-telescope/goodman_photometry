@@ -29,29 +29,30 @@ log = logging.getLogger()
 
 def extract_observation_metadata(header):
     """
-    Extracts observation metadata from a FITS header.
+    Extracts observation metadata from a FITS header and ensures the wavelength mode is IMAGING.
 
     Args:
         header (astropy.io.fits.Header): The FITS header containing observation metadata.
 
     Returns:
         tuple: A tuple containing:
-            - filter_name (str): The active filter name.
+            - filter_name (str): The active filter name, determined from the header.
             - serial_binning (int): Binning factor in the serial direction.
             - parallel_binning (int): Binning factor in the parallel direction.
-            - observation_time (str): The observation time.
+            - observation_time (str): The observation time, extracted from the header.
             - gain (float): The detector gain (e-/ADU).
-            - read_noise (float): The read noise (e-).
+            - read_noise (float): The detector read noise (e-).
             - saturation_threshold (float): The saturation threshold (in ADU),
               calculated based on the readout mode.
             - exposure_time (float): The exposure time (in seconds).
 
     Raises:
-        ValueError: If the observation mode is not imaging.
+        SystemExit: If the wavelength mode (`WAVMODE`) is not set to "IMAGING".
     """
-    # Check if observations are in imaging mode; raise an error if not.
+    # Ensure observations are in IMAGING mode; exit if not.
     wavelength_mode = header.get('WAVMODE')
-    check_wavelength_mode(wavelength_mode)
+    if wavelength_mode != 'IMAGING':
+        sys.exit("Error: WAVMODE is not IMAGING. No data to process.")
 
     # Determine the active filter name, considering both filter wheels.
     primary_filter = header.get('FILTER')
@@ -62,7 +63,7 @@ def extract_observation_metadata(header):
     serial_binning, parallel_binning = (int(value) for value in header['CCDSUM'].split())
 
     # Retrieve observation time.
-    observation_time = get_observation_time(header, verbose=False)
+    observation_time = get_observation_time(header)
 
     # Get gain, read noise, and calculate saturation threshold.
     gain = header.get('GAIN')
@@ -74,6 +75,7 @@ def extract_observation_metadata(header):
 
     return (filter_name, serial_binning, parallel_binning, observation_time,
             gain, read_noise, saturation_threshold, exposure_time)
+
 
 
 def calculate_saturation_threshold(gain_value, read_noise_value):
@@ -105,20 +107,6 @@ def calculate_saturation_threshold(gain_value, read_noise_value):
 
     return saturation_threshold
 
-
-# (F Navarete)
-def check_wavmode(wavmode):
-    """
-      Simple function to check whether WAVMODE is IMAGING or not.
-
-        wavmode (str): Goodman header's keyword. Should be IMAGING or SPECTROSCOPY.
-
-      returns:
-        if wavmode is not IMAGING, halts the code.
-    """
-    if wavmode != "IMAGING":
-        sys.exit("WAVMODE is not IMAGING. No data to process.")
-    print("IMAGING data.")
 
 
 # (F Navarete)
@@ -309,7 +297,7 @@ def bpm_mask(image, saturation, binning):
       Parameters
       ----------
         image    (numpy.ndarray): Image from fits file.
-        saturation         (int): Saturation threshold from get_saturation()
+        saturation         (int): Saturation threshold from calculate_saturation_threshold()
         binning            (int): binning of the data (1, 2, 3...) from get_info()
       Returns
       -------
@@ -833,7 +821,7 @@ def table_get(table, colname, default=0):
 
 
 # utils (STDPipe)
-def get_obs_time(header=None, filename=None, string=None, get_datetime=False, verbose=False):
+def get_observation_time(header=None, filename=None, string=None, get_datetime=False, verbose=False):
     """
       Extract date and time of observations from FITS headers of common formats, or from a string.
 
@@ -1539,7 +1527,7 @@ def refine_wcs_scamp(
     :param _workdir: If specified, all temporary files will be created in this directory, and will be kept intact after running SCAMP. May be used for debugging exact inputs and outputs of the executable. Optional
     :param _tmpdir: If specified, all temporary files will be created in a dedicated directory (that will be deleted after running the executable) inside this path.
     :param _exe: Full path to SCAMP executable. If not provided, the code tries to locate it automatically in your :envvar:`PATH`.
-    :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
+    :param verbose: Whether to show verbose messages during the run of the function or not. Maybe either boolean, or a `print`-like function.
     :returns: Refined astrometric solution, or FITS header if :code:`get_header=True`
     """
     # Find the binary
