@@ -4,7 +4,7 @@ from astropy.io import fits
 import sys
 
 # Assuming the extract_observation_metadata function is from the goodman_astro module
-from ..goodman_astro import extract_observation_metadata
+from ..goodman_astro import (calculate_saturation_threshold, extract_observation_metadata)
 
 class TestExtractObservationMetadata(unittest.TestCase):
 
@@ -51,6 +51,42 @@ class TestExtractObservationMetadata(unittest.TestCase):
         # Check that the metadata was correctly extracted
         expected_metadata = ('R', 2, 2, '2025-01-01T00:00:00', 1.5, 5.0, 50000, 100.0)
         self.assertEqual(metadata, expected_metadata)
+
+
+# from goodman_astro import calculate_saturation_threshold
+
+class TestCalculateSaturationThreshold(unittest.TestCase):
+
+    def test_known_gain_and_read_noise(self):
+        """
+        Test known combinations of gain and read noise that have specific thresholds.
+        """
+        test_cases = [
+            (1.54, 3.45, 50000),  # 100kHzATTN3
+            (3.48, 5.88, 25000),  # 100kHzATTN2
+            (1.48, 3.89, 50000),  # 344kHzATTN3
+            (3.87, 7.05, 25000),  # 344kHzATTN0
+            (1.47, 5.27, 50000),  # 750kHzATTN2
+            (3.77, 8.99, 25000),  # 750kHzATTN0
+        ]
+        for gain, rdnoise, expected in test_cases:
+            with self.subTest(gain=gain, rdnoise=rdnoise):
+                result = calculate_saturation_threshold(gain, rdnoise)
+                self.assertEqual(result, expected)
+
+    def test_unknown_gain_and_read_noise(self):
+        """
+        Test that unknown combinations of gain and read noise default to 50000.
+        """
+        unknown_cases = [
+            (2.0, 4.0),
+            (1.0, 1.0),
+            (3.0, 6.0),
+        ]
+        for gain, rdnoise in unknown_cases:
+            with self.subTest(gain=gain, rdnoise=rdnoise):
+                result = calculate_saturation_threshold(gain, rdnoise)
+                self.assertEqual(result, 50000)
 
 if __name__ == "__main__":
     unittest.main()
