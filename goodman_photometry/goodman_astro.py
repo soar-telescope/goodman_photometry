@@ -17,13 +17,12 @@ from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io import fits as fits
 from astropy.table import Table
 from astropy.time import Time
-from astropy.visualization import PercentileInterval
+from astropy.visualization import simple_norm
 from astropy.wcs import WCS
 from astroquery.vizier import Vizier
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import binned_statistic_2d
 from scipy.stats import chi2
-
 
 log = logging.getLogger()
 
@@ -928,48 +927,80 @@ def format_astromatic_opts(opts):
     return result
 
 
-# plots (STDPipe)
-def imgshow(image, wcs=None, qq=(0.01, 0.99), cmap='Blues_r', px=None, py=None, plot_wcs=False, pmarker='r.', psize=2, title=None, figsize=None, show_grid=False, output=None, dpi=300):
+def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
+               x_points=None, y_points=None, use_wcs_for_points=False,
+               point_marker='r.', point_size=2, title=None, figsize=None,
+               show_grid=False, output_file=None, dpi=300):
     """
-      Wrapper for matplotlib imshow, can plot datapoints and use the available WCS.
+    Plots a 2D image with optional WCS projection, color scaling, and overlay points.
+
+    Args:
+        image (numpy.ndarray): The 2D array representing the image data to be plotted.
+        wcs (astropy.wcs.WCS, optional): The WCS object for astronomical projections.
+            If None, a standard plot is created.
+        quantiles (tuple of float, optional): Percentile values for scaling image brightness
+            (default is (0.01, 0.99)).
+        cmap (str, optional): Colormap to use for the image (default is 'Blues_r').
+        x_points (array-like, optional): X-coordinates of points to overlay on the image.
+        y_points (array-like, optional): Y-coordinates of points to overlay on the image.
+        use_wcs_for_points (bool, optional): Whether to transform points using WCS
+            (default is False).
+        point_marker (str, optional): Matplotlib marker style for the overlay points
+            (default is 'r.').
+        point_size (float, optional): Size of the overlay points (default is 2).
+        title (str, optional): Title for the plot.
+        figsize (tuple of float, optional): Size of the figure in inches (width, height).
+            If None, defaults to Matplotlib's default.
+        show_grid (bool, optional): Whether to overlay a grid (default is False).
+        output_file (str, optional): File path to save the plot. If None, the plot is
+            displayed instead of being saved (default is None).
+        dpi (int, optional): Resolution of the saved plot in dots per inch (default is 300).
+
+    Returns:
+        None: This function does not return any value. It either displays the plot or
+        saves it to a file if `output_file` is provided.
+
+    Raises:
+        ValueError: If the quantiles are invalid (e.g., negative or out of range).
     """
-    if figsize is None:
-        plt.figure()
-    else:
-        plt.figure(figsize=figsize)
 
-    # show WCS if available
-    if wcs is not None:
-        ax = plt.subplot(projection=wcs)
-    else:
-        ax = plt.subplot()
-    # define 1 and 99-th percentile for plotting the data
+    fig, ax = plt.subplots(figsize=figsize, subplot_kw={'projection': wcs} if wcs else None)
 
-    # percentile = PercentileInterval(99.)
-    quant = np.nanquantile(image, qq)
-    if quant[0] < 0:
-        quant[0] = 0
+    # Compute quantiles for color scaling
+    brightness_limits = np.nanquantile(image, quantiles)
+    brightness_limits[0] = max(brightness_limits[0], 0)  # Ensure vmin is non-negative
+    norm = simple_norm(image, 'linear', min_cut=brightness_limits[0], max_cut=brightness_limits[1])
 
-    # now plot
-    img = ax.imshow(image, origin='lower', vmin=quant[0], vmax=quant[1], interpolation='nearest', cmap=cmap)    # STDpipe
+    # Plot the image
+    img = ax.imshow(image, origin='lower', norm=norm, cmap=cmap)
+
+    # Optionally overlay grid
     if show_grid:
         ax.grid(color='white', ls='--')
-    if wcs is not None:
+
+    # Set labels if WCS is provided
+    if wcs:
         ax.set_xlabel('Right Ascension (J2000)')
         ax.set_ylabel('Declination (J2000)')
-    # add colorbar
-    plt.colorbar(img)
-    # add datapoints
-    if px is not None and py is not None:
-        if plot_wcs:
-            ax.plot(px, py, pmarker, ms=psize, transform=ax.get_transform('fk5'))
-        else:
-            plt.plot(px, py, pmarker, ms=psize)
-    # add title
-    plt.title(title)
+
+    # Add a colorbar
+    plt.colorbar(img, ax=ax)
+
+    # Plot points if provided
+    if x_points is not None and y_points is not None:
+        transform = ax.get_transform('fk5') if use_wcs_for_points else None
+        ax.plot(x_points, y_points, point_marker, ms=point_size, transform=transform)
+
+    # Set the title
+    if title:
+        ax.set_title(title)
+
+    # Save or show the plot
     plt.tight_layout()
-    if output is not None:
-        plt.savefig(output, dpi=dpi)
+    if output_file:
+        plt.savefig(output_file, dpi=dpi)
+    else:
+        plt.show()
 
 
 # plots (STDPipe)

@@ -10,18 +10,18 @@ from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
 from goodman_astro import (get_info,
-                            bpm_mask,
-                            check_wcs,
-                            clear_wcs,
-                            dq_results,
-                            filter_sets,
-                            get_cat_vizier,
-                            get_frame_center,
-                            get_objects_sextractor,
-                            get_pixscale,
-                            goodman_wcs,
-                            imgshow,
-                            refine_wcs_scamp)
+                           bpm_mask,
+                           check_wcs,
+                           clear_wcs,
+                           dq_results,
+                           filter_sets,
+                           get_cat_vizier,
+                           get_frame_center,
+                           get_objects_sextractor,
+                           get_pixscale,
+                           goodman_wcs,
+                           plot_image,
+                           refine_wcs_scamp)
 from utils import get_astrometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
@@ -114,21 +114,21 @@ class Astrometry(object):
             hdu_list.writeto(self.filename.replace(".fits", "_mask.fits"), overwrite=True)
 
         plot_image_filename = self.filename.replace(".fits", ".png")
-        imgshow(image=self.image,
-                wcs=None,
-                title=self.filename.replace(".fits", ""),
-                output=plot_image_filename,
-                qq=(0.01, 0.99),
-                cmap=self.color_map)
+        plot_image(
+            image=self.image,
+            title=self.filename.replace(".fits", ""),
+            output_file=plot_image_filename,
+            quantiles=(0.01, 0.99),
+            cmap=self.color_map)
         self.log.info(f"Image - no WCS: {plot_image_filename}")
 
         plot_bad_pixel_mask_filename = self.filename.replace(".fits", "_BPM.png")
-        imgshow(image=self.bad_pixel_mask,
-                wcs=None,
-                title="Bad pixel mask",
-                output=plot_bad_pixel_mask_filename,
-                qq=(0, 1),
-                cmap=self.color_map)
+        plot_image(
+            image=self.bad_pixel_mask,
+            title="Bad pixel mask",
+            output_file=plot_bad_pixel_mask_filename,
+            quantiles=(0, 1),
+            cmap=self.color_map)
         self.log.info(f"Image - bad pixel mask: {plot_bad_pixel_mask_filename}")
 
     def __create_basic_wcs_header(self):
@@ -169,17 +169,14 @@ class Astrometry(object):
 
         plot_detections_filename = self.filename.replace(".fits", "_detections.png")
 
-        imgshow(image=self.image,
-                wcs=None,
-                px=self.sources['x'],
-                py=self.sources['y'],
-                title='Detected objects',
-                output=plot_detections_filename,
-                qq=(0.01, 0.99),
-                cmap=self.color_map,
-                pmarker='r.',
-                psize=2,
-                show_grid=False)
+        plot_image(
+            image=self.image,
+            x_points=self.sources['x'],
+            y_points=self.sources['y'],
+            title='Detected objects',
+            output_file=plot_detections_filename,
+            quantiles=(0.01, 0.99),
+            cmap=self.color_map)
 
         self.log.info(f"Image - SExtractor detections: {plot_detections_filename}")
 
@@ -188,17 +185,14 @@ class Astrometry(object):
 
         plot_detections_flag_0_filename = self.filename.replace(".fits", "_detections_flag_0.png")
 
-        imgshow(image=self.image,
-                wcs=None,
-                px=data_quality_sources['x'],
-                py=data_quality_sources['y'],
-                title='Detected objects (FLAG=0)',
-                output=plot_detections_flag_0_filename,
-                qq=(0.01, 0.99),
-                cmap=self.color_map,
-                pmarker='r.',
-                psize=2,
-                show_grid=False)
+        plot_image(
+            image=self.image,
+            x_points=data_quality_sources['x'],
+            y_points=data_quality_sources['y'],
+            title='Detected objects (FLAG=0)',
+            output_file=plot_detections_flag_0_filename,
+            quantiles=(0.01, 0.99),
+            cmap=self.color_map)
 
         self.log.info(f"Image - Detected objects (FLAG=0): {plot_detections_flag_0_filename}")
 

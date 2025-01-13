@@ -1,31 +1,29 @@
-import logging
-import matplotlib.pyplot as plt
-import numpy as np
 import datetime
+import logging
 import warnings
 
-from astropy.io.fits.verify import VerifyWarning
+import matplotlib.pyplot as plt
+import numpy as np
 from astropy.io import fits
+from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
 from goodman_astro import (bpm_mask,
-                            calibrate_photometry,
-                            check_phot,
-                            check_wcs,
-                            dq_results,
-                            filter_sets,
-                            get_cat_vizier,
-                            get_frame_center,
-                            get_info,
-                            get_objects_sextractor,
-                            get_pixscale,
-                            plot_photometric_match,
-                            plot_photcal,
-                            phot_table,
-                            phot_zeropoint)
-
-from goodman_astro import imgshow as plot_image
-
+                           calibrate_photometry,
+                           check_phot,
+                           check_wcs,
+                           dq_results,
+                           filter_sets,
+                           get_cat_vizier,
+                           get_frame_center,
+                           get_info,
+                           get_objects_sextractor,
+                           get_pixscale,
+                           plot_photometric_match,
+                           plot_photcal,
+                           phot_table,
+                           phot_zeropoint)
+from goodman_astro import plot_image
 from utils import get_photometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
@@ -119,12 +117,13 @@ class Photometry(object):
         self.log.info(f"Processing {self.filename}: filter: {self.filter_name} gain: {gain:.2f} at {time}")
         if self.save_plots:
             output_filename = self.filename.replace(".fits", "_phot_wcs.png")
-            plot_image(image=data,
-                       wcs=wcs,
-                       title=filename.replace(".fits", ""),
-                       output=output_filename,
-                       dpi=self.plot_file_resolution,
-                       cmap=self.color_map)
+            plot_image(
+                image=data,
+                wcs=wcs,
+                title=filename.replace(".fits", ""),
+                output_file=output_filename,
+                dpi=self.plot_file_resolution,
+                cmap=self.color_map)
 
         bad_pixel_mask = bpm_mask(image=data,
                                   saturation=saturation_threshold,
@@ -167,17 +166,15 @@ class Photometry(object):
 
         if self.save_plots:
             output_filename = self.filename.replace(".fits", "_phot_detections.png")
-            plot_image(image=data,
-                       wcs=wcs,
-                       px=self.sources['x'],
-                       py=self.sources['y'],
-                       title="Detected sources",
-                       output=output_filename,
-                       dpi=self.plot_file_resolution,
-                       cmap=self.color_map,
-                       pmarker='r.',
-                       psize=2,
-                       show_grid=False)
+            plot_image(
+                image=data,
+                wcs=wcs,
+                x_points=self.sources['x'],
+                y_points=self.sources['y'],
+                title="Detected sources",
+                output_file=output_filename,
+                dpi=self.plot_file_resolution,
+                cmap=self.color_map)
             self.log.info(f"SExtractor detections plot saved to: {output_filename}")
         return self.sources
 
@@ -185,17 +182,14 @@ class Photometry(object):
         self.data_quality_sources = self.sources[self.sources['flags'] == 0]
         if self.save_plots:
             output_filename = self.filename.replace(".fits", "_phot_detections_flag0.png")
-            plot_image(image=data,
-                       wcs=None,
-                       px=self.data_quality_sources['x'],
-                       py=self.data_quality_sources['y'],
-                       title="Detected sources (FLAG=0)",
-                       output=output_filename,
-                       dpi=self.plot_file_resolution,
-                       cmap=self.color_map,
-                       pmarker="r.",
-                       psize=2,
-                       show_grid=False)
+            plot_image(
+                image=data,
+                x_points=self.data_quality_sources['x'],
+                y_points=self.data_quality_sources['y'],
+                title="Detected sources (FLAG=0)",
+                output_file=output_filename,
+                dpi=self.plot_file_resolution,
+                cmap=self.color_map)
             self.log.info(f"SExtractor detections (flag=0) plot saved to: {output_filename}")
         self.dq = dq_results(dq_obj=self.data_quality_sources)
         # fwhm, fwhm_error, ellipticity, ellipticity_error = dq_results(dq_obj=self.data_quality_sources)
