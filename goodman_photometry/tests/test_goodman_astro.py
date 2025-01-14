@@ -1,11 +1,16 @@
 import unittest
 from unittest.mock import patch
 
+import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 
-from ..goodman_astro import (calculate_saturation_threshold, create_goodman_wcs, extract_observation_metadata)
+from ..goodman_astro import (
+    calculate_saturation_threshold,
+    create_goodman_wcs,
+    extract_observation_metadata,
+    mask_field_of_view)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -155,6 +160,53 @@ class TestGoodmanWCS(unittest.TestCase):
             create_goodman_wcs(header)
 
         self.assertIn('Header must contain either "RA"/"DEC" or "TELRA"/"TELDEC".', str(context.exception))
+
+
+class TestMaskFieldOfView(unittest.TestCase):
+
+    def test_mask_field_of_view_binning_1(self):
+        image = np.zeros((3100, 3100))  # Simulated image with binning 1 dimensions
+        binning = 1
+        mask = mask_field_of_view(image, binning)
+
+        center_x, center_y, radius = 1520, 1570, 1550
+        x, y = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+        expected_mask = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2) > radius
+
+        np.testing.assert_array_equal(mask, expected_mask)
+
+    def test_mask_field_of_view_binning_2(self):
+        image = np.zeros((1600, 1600))  # Simulated image with binning 2 dimensions
+        binning = 2
+        mask = mask_field_of_view(image, binning)
+
+        center_x, center_y, radius = 770, 800, 775
+        x, y = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+        expected_mask = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2) > radius
+
+        np.testing.assert_array_equal(mask, expected_mask)
+
+    def test_mask_field_of_view_binning_3(self):
+        image = np.zeros((1080, 1080))  # Simulated image with binning 3 dimensions
+        binning = 3
+        mask = mask_field_of_view(image, binning)
+
+        center_x, center_y, radius = 510, 540, 515
+        x, y = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+        expected_mask = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2) > radius
+
+        np.testing.assert_array_equal(mask, expected_mask)
+
+    def test_mask_field_of_view_unsupported_binning(self):
+        image = np.zeros((2000, 2000))  # Simulated image
+        binning = 4
+        mask = mask_field_of_view(image, binning)
+
+        center_x, center_y, radius = image.shape[0] / 2, image.shape[1] / 2, image.shape[0] / 2
+        x, y = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+        expected_mask = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2) > radius
+
+        np.testing.assert_array_equal(mask, expected_mask)
 
 
 if __name__ == "__main__":

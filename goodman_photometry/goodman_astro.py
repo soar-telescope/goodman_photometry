@@ -263,37 +263,30 @@ def create_goodman_wcs(header):
     return header
 
 
-# (F Navarete)
-def mask_fov(image, binning):
+def mask_field_of_view(image, binning):
     """
-      Mask out the edges of the FOV of the Goodman images.
-      Parameters
-      ----------
-        image    (numpy.ndarray): Image from fits file.
-        binning            (int): binning of the data (1, 2, 3...) from get_info()
-      Returns
-      -------
-        mask_fov (numpy.ndarray): Boolean mask with the same dimension as 'image' (1/0 for good/masked pixels, respectively)
-    """
-    # define center of the FOV for binning 1, 2, and 3
-    if binning == 1:
-        center_x, center_y, radius = 1520, 1570, 1550
-    elif binning == 2:
-        center_x, center_y, radius = 770, 800, 775
-    elif binning == 3:
-        center_x, center_y, radius = 510, 540, 515
-    # if any other binning value is provided, it will use the center of the image as a reference
-    else:
-        center_x, center_y, radius = image.shape[0] / 2., image.shape[1] / 2., image.shape[0] / 2.
+    Masks out the edges of the field of view (FOV) in Goodman images.
 
-    # create a grid of pixel coordinates
+    Args:
+        image (numpy.ndarray): The image array from the FITS file.
+        binning (int): The binning factor (e.g., 1, 2, 3).
+
+    Returns:
+        numpy.ndarray: A boolean mask with the same dimensions as 'image'.
+                       Pixels outside the FOV are masked (True), and others are unmasked (False).
+    """
+    binning_centers = {
+        1: (1520, 1570, 1550),
+        2: (770, 800, 775),
+        3: (510, 540, 515),
+    }
+    center_x, center_y, radius = binning_centers.get(
+        binning,
+        (image.shape[0] / 2, image.shape[1] / 2, image.shape[0] / 2),
+    )
     x, y = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-
-    # calculate the distance of each pixel from the center of the FOV
     distance = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
-    mask_fov = distance > radius
-
-    return mask_fov
+    return distance > radius
 
 
 # (F Navarete)
@@ -319,7 +312,7 @@ def bpm_mask(image, saturation, binning):
     mask |= cmask
 
     # mask out edge of the fov
-    mask |= mask_fov(image, binning)
+    mask |= mask_field_of_view(image, binning)
 
     return mask
 
