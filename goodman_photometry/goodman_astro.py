@@ -198,60 +198,67 @@ def filter_sets(filter_name):
     return catalog_filter, photometry_filter
 
 
-# astro (F Navarete)
-def goodman_wcs(header):
+def create_goodman_wcs(header):
     """
-      Creates a first guess of the WCS using the telescope coordinates, the
-      CCDSUM (binning), position angle and plate scale.
-      Parameters
-      ----------
-        header (astropy.io.fits.Header): Primary Header to be updated.
-      Returns
-      -------
-        header (astropy.io.fits.Header): Primary Header with updated WCS information.
+    Creates a WCS (World Coordinate System) guess using telescope coordinates,
+    binning, position angle, and plate scale.
+
+    Args:
+        header (astropy.io.fits.Header): The FITS header containing necessary metadata.
+
+    Returns:
+        astropy.io.fits.Header: Updated FITS header with WCS information.
+
+    Raises:
+        ValueError: If neither "RA"/"DEC" nor "TELRA"/"TELDEC" are present in the header.
     """
+    # Set default EQUINOX and EPOCH if not provided
+    header.setdefault("EQUINOX", 2000.0)
+    header.setdefault("EPOCH", 2000.0)
 
-    if 'EQUINOX' not in header:
-        header['EQUINOX'] = 2000.
-
-    if 'EPOCH' not in header:
-        header['EPOCH'] = 2000.
-
-    binning = np.array([int(b) for b in header['CCDSUM'].split(' ')])
-
-    header['PIXSCAL1'] = -binning[0] * 0.15  # arcsec (for Swarp)
-    header['PIXSCAL2'] = +binning[1] * 0.15  # arcsec  (for Swarp)
-
-    if abs(header['PIXSCAL1']) != abs(header['PIXSCAL2']):
-        log.warning("Pixel scales for X and Y do not mach.")
-
-    plate_scale = (abs(header['PIXSCAL1']) * u.arcsec).to('degree')
-    p = plate_scale.to('degree').value
-    w = wcs.WCS(naxis=2)
-
+    # Parse CCD binning
     try:
-        coordinates = SkyCoord(ra=header['RA'], dec=header['DEC'],
-                               unit=(u.hourangle, u.deg))
+        serial_binning, parallel_binning = (int(b) for b in header["CCDSUM"].split())
+    except KeyError:
+        raise ValueError("Header missing 'CCDSUM' keyword for binning information.")
 
-    except ValueError:
+    # Calculate pixel scales
+    header["PIXSCAL1"] = -serial_binning * 0.15  # arcsec (for Swarp)
+    header["PIXSCAL2"] = parallel_binning * 0.15  # arcsec (for Swarp)
 
-        log.error("\"RA\" and \"DEC\" missing. Using \"TELRA\" and \"TELDEC\" instead.")
+    if abs(header["PIXSCAL1"]) != abs(header["PIXSCAL2"]):
+        log.warning("Pixel scales for X and Y axes do not match.")
 
-        coordinates = SkyCoord(ra=header['TELRA'], dec=header['TELDEC'],
-                               unit=(u.hourangle, u.deg))
+    plate_scale_in_degrees = (abs(header["PIXSCAL1"]) * u.arcsec).to("degree").value
+    wcs_instance = WCS(naxis=2)
 
-    ra = coordinates.ra.to('degree').value
-    dec = coordinates.dec.to('degree').value
+    # Determine RA and DEC coordinates
+    try:
+        coordinates = SkyCoord(
+            ra=header["RA"], dec=header["DEC"], unit=(u.hourangle, u.deg)
+        )
+    except KeyError:
+        try:
+            log.error(
+                '"RA" and "DEC" missing. Falling back to "TELRA" and "TELDEC".'
+            )
+            coordinates = SkyCoord(
+                ra=header["TELRA"], dec=header["TELDEC"], unit=(u.hourangle, u.deg)
+            )
+        except KeyError:
+            raise ValueError(
+                'Header must contain either "RA"/"DEC" or "TELRA"/"TELDEC".'
+            )
 
-    w.wcs.crpix = [header['NAXIS2'] / 2, header['NAXIS1'] / 2]
-    w.wcs.cdelt = [+1. * p, +1. * p]  # * binning
-    w.wcs.crval = [ra, dec]
-    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    # Set WCS parameters
+    wcs_instance.wcs.crpix = [header["NAXIS2"] / 2, header["NAXIS1"] / 2]
+    wcs_instance.wcs.cdelt = [+plate_scale_in_degrees, +plate_scale_in_degrees]
+    wcs_instance.wcs.crval = [coordinates.ra.deg, coordinates.dec.deg]
+    wcs_instance.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
-    wcs_header = w.to_header()
-
-    for key in wcs_header.keys():
-        header[key] = wcs_header[key]
+    # Update header with WCS information
+    wcs_header = wcs_instance.to_header()
+    header.update(wcs_header)
 
     return header
 

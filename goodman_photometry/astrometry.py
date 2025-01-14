@@ -19,7 +19,7 @@ from .goodman_astro import (extract_observation_metadata,
                            get_frame_center,
                            get_objects_sextractor,
                            get_pixscale,
-                           goodman_wcs,
+                           create_goodman_wcs,
                            plot_image,
                            refine_wcs_scamp)
 from .utils import get_astrometry_args, setup_logging
@@ -132,7 +132,7 @@ class Astrometry(object):
         self.log.info(f"Image - bad pixel mask: {plot_bad_pixel_mask_filename}")
 
     def __create_basic_wcs_header(self):
-        header_with_basic_wcs = goodman_wcs(self.header)
+        header_with_basic_wcs = create_goodman_wcs(self.header)
         self.wcs_init = check_wcs(header_with_basic_wcs)
 
         if self.save_intermediary_files:
