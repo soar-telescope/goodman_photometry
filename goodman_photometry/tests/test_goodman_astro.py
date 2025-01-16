@@ -8,6 +8,7 @@ from astropy.io import fits
 
 from ..goodman_astro import (
     calculate_saturation_threshold,
+    create_bad_pixel_mask,
     create_goodman_wcs,
     extract_observation_metadata,
     mask_field_of_view)
@@ -207,6 +208,54 @@ class TestMaskFieldOfView(unittest.TestCase):
         expected_mask = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2) > radius
 
         np.testing.assert_array_equal(mask, expected_mask)
+
+
+class TestCreateBadPixelMask(unittest.TestCase):
+
+    @patch('goodman_photometry.goodman_astro.mask_field_of_view')
+    @patch('astroscrappy.detect_cosmics')
+    def test_create_bad_pixel_mask(self, mock_detect_cosmics, mock_mask_field_of_view):
+        # Create a mock image
+        image = np.array([
+            [10, 20, 30],
+            [40, 50, 60],
+            [70, 80, 90]
+        ])
+
+        # Set the saturation threshold
+        saturation_threshold = 50
+
+        # Set the binning factor
+        binning = 1
+
+        # Mock the return value of detect_cosmics
+        cosmic_ray_mask = np.array([
+            [False, True, False],
+            [False, False, False],
+            [True, False, False]
+        ])
+        mock_detect_cosmics.return_value = (cosmic_ray_mask, None)
+
+        # Mock the return value of mask_field_of_view
+        fov_mask = np.array([
+            [False, False, True],
+            [False, False, False],
+            [False, False, False]
+        ])
+        mock_mask_field_of_view.return_value = fov_mask
+
+        # Call the function
+        result = create_bad_pixel_mask(image, saturation_threshold, binning)
+
+        # Expected mask
+        expected_mask = np.array([
+            [False, True, True],
+            [False, False, True],
+            [True, True, True]
+        ])
+
+        # Assert the result matches the expected mask
+        np.testing.assert_array_equal(result, expected_mask)
 
 
 if __name__ == "__main__":

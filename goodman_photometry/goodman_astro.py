@@ -289,29 +289,28 @@ def mask_field_of_view(image, binning):
     return distance > radius
 
 
-# (F Navarete)
-def bpm_mask(image, saturation, binning):
+def create_bad_pixel_mask(image, saturation_threshold, binning):
     """
-      Creates a complete bad pixel mask, masking out saturated sources, cosmic rays and pixels outside the circular FOV.
-      Mask out the edges of the FOV of the Goodman images.
-      Parameters
-      ----------
-        image    (numpy.ndarray): Image from fits file.
-        saturation         (int): Saturation threshold from calculate_saturation_threshold()
-        binning            (int): binning of the data (1, 2, 3...) from get_info()
-      Returns
-      -------
-        mask_fov (numpy.ndarray): Boolean mask with the same dimension as 'image' (1/0 for good/masked pixels, respectively)
+    Creates a comprehensive bad pixel mask, identifying and masking saturated pixels, cosmic rays,
+    and pixels outside the circular field of view (FOV) of Goodman images.
+
+    Args:
+        image (numpy.ndarray): 2D array representing the image data from a FITS file.
+        saturation_threshold (int): Saturation threshold derived from `calculate_saturation_threshold`.
+        binning (int): Binning factor of the data (1, 2, 3, etc.).
+
+    Returns:
+        numpy.ndarray: Boolean mask with the same dimensions as `image`.
+                       Pixels are masked (True) if they are bad, otherwise unmasked (False).
     """
+    # Mask saturated pixels
+    mask = image > saturation_threshold
 
-    # Masks out saturated pixels
-    mask = image > saturation
+    # Identify and mask cosmic rays
+    cosmic_ray_mask, _ = astroscrappy.detect_cosmics(image, mask)
+    mask |= cosmic_ray_mask
 
-    # Identify and masks out cosmic rays
-    cmask, cimage = astroscrappy.detect_cosmics(image, mask, verbose=False)
-    mask |= cmask
-
-    # mask out edge of the fov
+    # Mask pixels outside the field of view
     mask |= mask_field_of_view(image, binning)
 
     return mask

@@ -10,7 +10,7 @@ from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
 from .goodman_astro import (extract_observation_metadata,
-                           bpm_mask,
+                           create_bad_pixel_mask,
                            check_wcs,
                            clear_wcs,
                            dq_results,
@@ -104,8 +104,7 @@ class Astrometry(object):
 
     def __create_bad_pixel_mask(self):
 
-        self.bad_pixel_mask = bpm_mask(self.image, self.saturation_threshold, self.serial_binning)
-
+        self.bad_pixel_mask = create_bad_pixel_mask(self.image, self.saturation_threshold, self.serial_binning)
         self.log.debug('Done masking cosmics')
 
         if self.save_intermediary_files:

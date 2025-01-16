@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
-from .goodman_astro import (bpm_mask,
+from .goodman_astro import (create_bad_pixel_mask,
                            calibrate_photometry,
                            check_phot,
                            check_wcs,
@@ -125,9 +125,10 @@ class Photometry(object):
                 dpi=self.plot_file_resolution,
                 cmap=self.color_map)
 
-        bad_pixel_mask = bpm_mask(image=data,
-                                  saturation=saturation_threshold,
-                                  binning=serial_binning)
+        bad_pixel_mask = create_bad_pixel_mask(
+            image=data,
+            saturation_threshold=saturation_threshold,
+            binning=serial_binning)
         self.log.debug("Bad pixel mask created")
 
         self.run_sextractor(
