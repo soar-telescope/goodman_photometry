@@ -1,16 +1,18 @@
 import unittest
 from unittest.mock import patch
 
+import astropy.units as u
 import numpy as np
-from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.table import Table
 
 from ..goodman_astro import (
     calculate_saturation_threshold,
     create_bad_pixel_mask,
     create_goodman_wcs,
     extract_observation_metadata,
+    get_vizier_catalog,
     mask_field_of_view)
 
 
@@ -256,6 +258,157 @@ class TestCreateBadPixelMask(unittest.TestCase):
 
         # Assert the result matches the expected mask
         np.testing.assert_array_equal(result, expected_mask)
+
+class TestGetVizierCatalog(unittest.TestCase):
+
+    @patch('astroquery.vizier.core.VizierClass.query_region')
+    def test_get_vizier_catalog(self, mock_query_region):
+        """Test the get_vizier_catalog function with precise mocking of query_region."""
+
+        # Mock Vizier response
+        mock_table = Table(
+            {
+                'RAJ2000': [10.684, 10.685],
+                'DEJ2000': [41.269, 41.270],
+                'Gmag': [15.3, 16.1],
+                'BPmag': [15.7, 16.5],
+                'RPmag': [14.9, 15.8],
+                'E_BR_RP_': [1.1, 1.2],
+                'e_Gmag': [0.01, 0.02]
+            }
+        )
+        mock_query_region.return_value = [mock_table]
+
+        # Test parameters
+        ra_center = 10.684
+        dec_center = 41.269
+        search_radius = 0.1
+        catalog = 'gaiadr2'
+        catalog_mapped = 'I/345/gaia2'
+        row_limit = 10
+        column_filters = {}
+        additional_columns = []
+        include_distance = True
+
+        # Call the function
+        result = get_vizier_catalog(
+            right_ascension=ra_center,
+            declination=dec_center,
+            search_radius=search_radius,
+            catalog=catalog,
+            row_limit=row_limit,
+            column_filters=column_filters,
+            extra_columns=additional_columns,
+            include_distance=include_distance
+        )
+
+        # Construct expected call arguments
+        expected_coord = SkyCoord(ra_center, dec_center, unit='deg')
+        mock_query_region.assert_called_once_with(
+            expected_coord,
+            radius=search_radius * u.deg,
+            catalog=catalog_mapped
+        )
+
+        # Assertions for the result
+        self.assertIsNotNone(result)
+        self.assertIn('RAJ2000', result.colnames)
+        self.assertIn('DEJ2000', result.colnames)
+
+        if include_distance:
+            self.assertIn('_r', result.colnames)
+            self.assertTrue(all(result['_r'] >= 0))
+
+        # Verify augmentation
+        self.assertTrue('Gmag' in result.colnames)
+        self.assertTrue('BPmag' in result.colnames)
+        self.assertTrue('RPmag' in result.colnames)
+
+        # Optional: Check specific augmentation values
+        self.assertTrue('Bmag' in result.colnames)
+        self.assertTrue('Vmag' in result.colnames)
+        self.assertTrue('Rmag' in result.colnames)
+
+
+# class TestGetVizierCatalog(unittest.TestCase):
+#     @patch('astroquery.vizier.core.VizierClass')
+#     def test_get_vizier_catalog(self, mock_vizier):
+#         """Test the get_vizier_catalog function, including Gaia augmentation."""
+#         # Mock Vizier response
+#         mock_table = Table(
+#             {
+#                 'RAJ2000': [10.684, 10.685],
+#                 'DEJ2000': [41.269, 41.270],
+#                 'Gmag': [15.3, 16.1],
+#                 'BPmag': [15.7, 16.5],
+#                 'RPmag': [14.9, 15.8],
+#                 'E_BR_RP_': [1.1, 1.2],
+#                 'e_Gmag': [0.01, 0.02],
+#             }
+#         )
+#         mock_table.meta = {}
+#
+#         # Mock Vizier behavior
+#         mock_vizier.return_value.query_region.return_value = [mock_table]
+#
+#         # Test parameters
+#         ra_center = 10.684  # degrees
+#         dec_center = 41.269  # degrees
+#         search_radius = 0.1  # degrees
+#         catalog = 'gaiadr2'
+#         row_limit = 10
+#         column_filters = {}
+#         additional_columns = []
+#         calculate_distance = True
+#
+#         # Call the function
+#         result = get_vizier_catalog(
+#             right_ascension=ra_center,
+#             declination=dec_center,
+#             search_radius=search_radius,
+#             catalog=catalog,
+#             row_limit=row_limit,
+#             column_filters=column_filters,
+#             extra_columns=additional_columns,
+#             include_distance=calculate_distance,
+#         )
+#
+#         # Debugging mock behavior
+#         print(mock_vizier)
+#         print(f"Mock Vizier called: {mock_vizier.called}")
+#         print(f"Mock Vizier instance calls: {mock_vizier.return_value.query_region.call_args_list}")
+#         print(f"Vizier instantiated with row_limit: {row_limit}")
+#         print(f"Query region parameters: RA={ra_center}, Dec={dec_center}, Radius={search_radius}")
+#
+#         # Assertions for Vizier calls
+#         mock_vizier.assert_called_once_with(
+#             row_limit=row_limit,
+#             columns=['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000'],
+#             column_filters=column_filters,
+#         )
+#         mock_vizier.return_value.query_region.assert_called_once_with(
+#             SkyCoord(ra_center, dec_center, unit='deg'),
+#             radius=search_radius * u.deg,
+#             catalog=catalog,
+#         )
+#
+#         # Assertions for the result
+#         self.assertIsNotNone(result)
+#         self.assertIn('RAJ2000', result.colnames)
+#         self.assertIn('DEJ2000', result.colnames)
+#         self.assertIn('Bmag', result.colnames)
+#         self.assertIn('Vmag', result.colnames)
+#         self.assertIn('Rmag', result.colnames)
+#         self.assertIn('Imag', result.colnames)
+#
+#         # Check distance column
+#         if calculate_distance:
+#             self.assertIn('_r', result.colnames)
+#             self.assertTrue(np.all(result['_r'] > 0))
+#
+#         # Verify augmentation
+#         self.assertTrue(np.allclose(result['Bmag'], [15.6, 16.4], atol=0.1))
+#         self.assertTrue(np.allclose(result['Vmag'], [15.4, 16.2], atol=0.1))
 
 
 if __name__ == "__main__":

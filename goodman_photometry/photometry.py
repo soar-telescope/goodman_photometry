@@ -14,7 +14,7 @@ from .goodman_astro import (create_bad_pixel_mask,
                            check_wcs,
                            dq_results,
                            filter_sets,
-                           get_cat_vizier,
+                           get_vizier_catalog,
                            get_frame_center,
                            extract_observation_metadata,
                            get_objects_sextractor,
@@ -214,8 +214,11 @@ class Photometry(object):
         self.log.debug(f"Calibrating Goodman HST {self.filter_name} "
                        f"filter observations using {catalog_filter} magnitudes from {self.catalog_name} "
                        f"converted to {photometry_filter} filter.")
-        catalog = get_cat_vizier(center_ra, center_dec, fov_radius, self.catalog_name,
-                                 filters={catalog_filter: f'<{self.magnitude_threshold}'})
+        catalog = get_vizier_catalog(right_ascension=center_ra,
+                                     declination=center_dec,
+                                     search_radius=fov_radius,
+                                     catalog=self.catalog_name,
+                                     column_filters={catalog_filter: f'<{self.magnitude_threshold}'})
 
         self.log.debug(f"{len(catalog)} catalogue stars on {catalog_filter} filter")
         self.log.info(f"Photometric calibration using {catalog_filter} "

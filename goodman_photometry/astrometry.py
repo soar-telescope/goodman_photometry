@@ -15,7 +15,7 @@ from .goodman_astro import (extract_observation_metadata,
                            clear_wcs,
                            dq_results,
                            filter_sets,
-                           get_cat_vizier,
+                           get_vizier_catalog,
                            get_frame_center,
                            get_objects_sextractor,
                            get_pixscale,
@@ -209,11 +209,11 @@ class Astrometry(object):
 
         self.log.info(f"Querying Vizier for {self.catalog_name} catalog")
 
-        vizier_catalog = get_cat_vizier(ra0=self.ra_0,
-                                        dec0=self.dec_0,
-                                        sr0=self.fov_radius,
-                                        catalog=self.catalog_name,
-                                        filters={self.catalog_filter: f'<{self.magnitude_threshold}'})
+        vizier_catalog = get_vizier_catalog(right_ascension=self.ra_0,
+                                            declination=self.dec_0,
+                                            search_radius=self.fov_radius,
+                                            catalog=self.catalog_name,
+                                            column_filters={self.catalog_filter: f'<{self.magnitude_threshold}'})
 
         self.log.info(f"Retrieved {len(vizier_catalog)} stars on {self.catalog_filter} filter (magnitude threshold={self.magnitude_threshold:.2f}).")
 

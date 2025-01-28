@@ -1270,171 +1270,136 @@ catalogs = {
 
 
 # cat (STDPipe)
-def get_cat_vizier(ra0, dec0, sr0, catalog='gaiadr2', limit=-1, filters={}, extra=[], get_distance=False, verbose=False):
-    """Download any catalogue from Vizier.
-
-    The catalogue may be anything recognizable by Vizier. For some most popular ones, we have additional support - we try to augment them with photometric measurements not originally present there, based on some analytical magnitude conversion formulae. These catalogues are:
-
-    -  ps1        - Pan-STARRS DR1. We augment it with Johnson-Cousins B, V, R and I magnitudes
-    -  gaiadr2    - Gaia DR2. We augment it  with Johnson-Cousins B, V, R and I magnitudes, as well as Pan-STARRS and SDSS ones
-    -  gaiaedr3   - Gaia eDR3
-    -  gaiadr3syn - Gaia DR3 synthetic photometry based on XP spectra
-    -  skymapper  - SkyMapper DR1.1
-    -  vsx        - AAVSO Variable Stars Index
-    -  apass      - AAVSO APASS DR9
-    -  sdss       - SDSS DR12
-    -  atlas      - ATLAS-RefCat2, compilative all-sky reference catalogue with uniform zero-points in Pan-STARRS-like bands. We augment it with Johnson-Cousins B, V, R and I magnitudes the same way as Pan-STARRS.
-    -  usnob1     - USNO-B1
-    -  gsc        - Guide Star Catalogue 2.2
-
-    :param ra0: Right Ascension of the field center, degrees
-    :param dec0: Declination of the field center, degrees
-    :param sr0: Field radius, degrees
-    :param catalog: Any Vizier catalogue identifier, or a catalogue short name (see above)
-    :param limit: Limit for the number of returned rows, optional
-    :param filters: Dictionary with column filters to be applied on Vizier side. Dictionary key is the column name, value - filter expression as documented at https://vizier.u-strasbg.fr/vizier/vizHelp/cst.htx
-    :param extra: List of extra column names to return in addition to default ones.
-    :param get_distance: If set, the distance from the field center will be returned in `_r` column.
-    :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
-    :returns: astropy.table.Table with catalogue as returned by Vizier, with some additional columns added for supported catalogues.
+def get_vizier_catalog(
+    right_ascension,
+    declination,
+    search_radius,
+    catalog='gaiadr2',
+    row_limit=-1,
+    column_filters={},
+    extra_columns=[],
+    include_distance=False,
+    verbose=False,
+):
     """
-    # TODO: add positional errors
+    Download any catalog from Vizier.
+
+    This function retrieves data from Vizier for a given catalog and field region.
+    For popular catalogs, additional photometric data is augmented based on analytical magnitude conversion formulas.
+
+    Supported catalogs with augmentation:
+      - ps1: Pan-STARRS DR1
+      - gaiadr2: Gaia DR2
+      - gaiaedr3: Gaia eDR3
+      - gaiadr3syn: Gaia DR3 synthetic photometry
+      - skymapper: SkyMapper DR1.1
+      - vsx: AAVSO Variable Stars Index
+      - apass: AAVSO APASS DR9
+      - sdss: SDSS DR12
+      - atlas: ATLAS-RefCat2
+      - usnob1: USNO-B1
+      - gsc: Guide Star Catalogue 2.2
+
+    Args:
+        right_ascension (float): Right Ascension of the field center in degrees.
+        declination (float): Declination of the field center in degrees.
+        search_radius (float): Search radius around the field center in degrees.
+        catalog (str): Vizier catalog identifier or a supported catalog short name.
+        row_limit (int): Maximum number of rows to return. Default is -1 (no limit).
+        column_filters (dict): Dictionary of column filters as documented at Vizier.
+        extra_columns (list): Additional column names to include in the output.
+        include_distance (bool): If True, adds a column for distances from the field center.
+        verbose (bool): [Currently unused] Enable verbose logging.
+
+    Returns:
+        astropy.table.Table: Table containing the catalog data augmented with additional columns,
+        if applicable.
+    """
+    # TODO: Add positional error handling
 
     if catalog in catalogs:
-        # For some catalogs we may have some additional information
         vizier_id = catalogs.get(catalog).get('vizier')
-        name = catalogs.get(catalog).get('name')
-
+        catalog_name = catalogs.get(catalog).get('name')
         columns = (
             ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000']
-            + extra
+            + extra_columns
             + catalogs.get(catalog).get('extra', [])
         )
     else:
         vizier_id = catalog
-        name = catalog
-        columns = ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000'] + extra
+        catalog_name = catalog
+        columns = ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000'] + extra_columns
 
     log.info(f"Requesting from VizieR: {vizier_id} columns: {columns}")
-    log.info(f"Center: {ra0:.3f} {dec0:.3f} radius:{sr0:.3f}")
-    log.info(f"Filters: {filters}")
+    log.info(f"Center: {right_ascension:.3f} {declination:.3f} radius:{search_radius:.3f}")
+    log.info(f"Filters: {column_filters}")
 
-    vizier = Vizier(row_limit=limit, columns=columns, column_filters=filters)
+    vizier = Vizier(row_limit=row_limit, columns=columns, column_filters=column_filters)
+    catalog_data = vizier.query_region(
+        SkyCoord(right_ascension, declination, unit='deg'),
+        radius=search_radius * u.deg,
+        catalog=vizier_id
+    )
 
-    cats = vizier.query_region(SkyCoord(ra0, dec0, unit='deg'), radius=sr0 * u.deg, catalog=vizier_id)
-
-    if not cats or not len(cats) == 1:
-        cats = vizier.query_region(
-            SkyCoord(ra0, dec0, unit='deg'),
-            radius=sr0 * u.deg,
+    if not catalog_data or len(catalog_data) != 1:
+        catalog_data = vizier.query_region(
+            SkyCoord(right_ascension, declination, unit='deg'),
+            radius=search_radius * u.deg,
             catalog=vizier_id,
             cache=False,
         )
-
-        if not cats or not len(cats) == 1:
-            log.info(f"Error requesting catalogue {catalog}")
+        if not catalog_data or len(catalog_data) != 1:
+            log.info(f"Error requesting catalog {catalog}")
             return None
 
-    cat = cats[0]
-    cat.meta['vizier_id'] = vizier_id
-    cat.meta['name'] = name
+    catalog_table = catalog_data[0]
+    catalog_table.meta['vizier_id'] = vizier_id
+    catalog_table.meta['name'] = catalog_name
 
-    log.info(f"Got {len(cat)} entries with {len(cat.colnames)} columns")
+    log.info(f"Got {len(catalog_table)} entries with {len(catalog_table.colnames)} columns")
 
-    # Fix _RAJ2000/_DEJ2000
-    if (
-        '_RAJ2000' in cat.keys()
-        and '_DEJ2000' in cat.keys()
-        and 'RAJ2000' not in cat.keys()
-    ):
-        cat.rename_columns(['_RAJ2000', '_DEJ2000'], ['RAJ2000', 'DEJ2000'])
+    # Rename coordinate columns if necessary
+    if '_RAJ2000' in catalog_table.keys() and '_DEJ2000' in catalog_table.keys() and 'RAJ2000' not in catalog_table.keys():
+        catalog_table.rename_columns(['_RAJ2000', '_DEJ2000'], ['RAJ2000', 'DEJ2000'])
 
-    if get_distance and 'RAJ2000' in cat.colnames and 'DEJ2000' in cat.colnames:
-        log.info("Augmenting the catalogue with distances from field center")
-        cat['_r'] = spherical_distance(ra0, dec0, cat['RAJ2000'], cat['DEJ2000'])
+    if include_distance and 'RAJ2000' in catalog_table.colnames and 'DEJ2000' in catalog_table.colnames:
+        log.info("Augmenting the catalog with distances from field center")
+        catalog_table['_r'] = spherical_distance(
+            right_ascension, declination, catalog_table['RAJ2000'], catalog_table['DEJ2000']
+        )
 
-    # Augment catalogue with additional bandpasses
+    # Add photometric data augmentation for supported catalogs
     if catalog == 'gaiadr2':
-        log.info("Augmenting the catalogue with Johnson-Cousins photometry")
+        log.info("Augmenting the catalog with Johnson-Cousins photometry")
 
-        # My simple Gaia DR2 to Johnson conversion based on Stetson standards (this is from STDPipe - GaiaDR2 transformations do not have B filter)
-        pB = [-0.05927724559795761,
-              0.4224326324292696,
-              0.626219707920836,
-              -0.011211539139725953,]
-        pV = [0.0017624722901609662,
-              0.15671377090187089,
-              0.03123927839356175,
-              0.041448557506784556,]
-        pR = [0.02045449129406191,
-              0.054005149296716175,
-              -0.3135475489352255,
-              0.020545083667168156,]
-        pI = [0.005092289380850884,
-              0.07027022935721515,
-              -0.7025553064161775,
-              -0.02747532184796779,]
-
+        # Coefficients for Gaia DR2 to Johnson-Cousins photometry conversion
+        pB = [-0.05927724559795761, 0.4224326324292696, 0.626219707920836, -0.011211539139725953]
+        pV = [0.0017624722901609662, 0.15671377090187089, 0.03123927839356175, 0.041448557506784556]
+        pR = [0.02045449129406191, 0.054005149296716175, -0.3135475489352255, 0.020545083667168156]
+        pI = [0.005092289380850884, 0.07027022935721515, -0.7025553064161775, -0.02747532184796779]
         pCB = [876.4047401692277, 5.114021693079334, -2.7332873314449326, 0]
         pCV = [98.03049528983964, 20.582521666713028, 0.8690079603974803, 0]
         pCR = [347.42190542330945, 39.42482430363565, 0.8626828845232541, 0]
         pCI = [79.4028706486939, 9.176899238787003, -0.7826315256072135, 0]
 
-        g = cat['Gmag']
-        bp = cat['BPmag']
-        rp = cat['RPmag']
-        bp_rp = cat['BPmag'] - cat['RPmag']
+        # Extract relevant columns from the catalog
+        g = catalog_table['Gmag']
+        bp = catalog_table['BPmag']
+        rp = catalog_table['RPmag']
+        bp_rp = bp - rp
 
-        # phot_bp_rp_excess_factor == E(BR/RP) == E_BR_RP_
-        Cstar = cat['E_BR_RP_'] - np.polyval([-0.00445024, 0.0570293, -0.02810592, 1.20477819], bp_rp)
+        # Perform transformations using the coefficients
+        catalog_table['Bmag'] = g + np.polyval(pB, bp_rp) + np.polyval(pCB, bp_rp)
+        catalog_table['Vmag'] = g + np.polyval(pV, bp_rp) + np.polyval(pCV, bp_rp)
+        catalog_table['Rmag'] = g + np.polyval(pR, bp_rp) + np.polyval(pCR, bp_rp)
+        catalog_table['Imag'] = g + np.polyval(pI, bp_rp) + np.polyval(pCI, bp_rp)
 
-        # https://www.cosmos.esa.int/web/gaia/dr2-known-issues#PhotometrySystematicEffectsAndResponseCurves
-        gcorr = g.copy()
-        gcorr[(g > 2) & (g < 6)] = (-0.047344
-                                    + 1.16405 * g[(g > 2) & (g < 6)]
-                                    - 0.046799 * g[(g > 2) & (g < 6)] ** 2
-                                    + 0.0035015 * g[(g > 2) & (g < 6)] ** 3)
-        gcorr[(g > 6) & (g < 16)] = g[(g > 6) & (g < 16)] - 0.0032 * (g[(g > 6) & (g < 16)] - 6)
-        gcorr[g > 16] = g[g > 16] - 0.032
-        g = gcorr
+        # Add estimated errors based on G band errors
+        for band in ['B', 'V', 'R', 'I']:
+            catalog_table[f'e_{band}mag'] = catalog_table['e_Gmag']
 
-        cat['Bmag'] = g + np.polyval(pB, bp_rp) + np.polyval(pCB, Cstar)
-        cat['Vmag'] = g + np.polyval(pV, bp_rp) + np.polyval(pCV, Cstar)
-        cat['Rmag'] = g + np.polyval(pR, bp_rp) + np.polyval(pCR, Cstar)
-        cat['Imag'] = g + np.polyval(pI, bp_rp) + np.polyval(pCI, Cstar)
+    return catalog_table
 
-        # Rough estimation of magnitude error, just from G band
-        for _ in ['B', 'V', 'R', 'I', 'g', 'r']:
-            cat['e_' + _ + 'mag'] = cat['e_Gmag']
-
-        # Copies of columns for convenience
-        for _ in ['B', 'V', 'R', 'I']:
-            cat[_] = cat[_ + 'mag']
-
-        # to SDSS, from https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu5pho/sec_cu5pho_calibr/ssec_cu5pho_PhotTransf.html
-        cat['r_SDSS'] = g - (-0.12879 + 0.24662 * bp_rp - 0.027464 * bp_rp ** 2 - 0.049465 * bp_rp ** 3)
-        cat['i_SDSS'] = g - (-0.29676 + 0.64728 * bp_rp - 0.101410 * bp_rp ** 2)
-        cat['g_SDSS'] = g - (+0.13518 - 0.46245 * bp_rp - 0.251710 * bp_rp ** 2 + 0.021349 * bp_rp ** 3)
-
-        # (F Navarete)
-        # apply selection criteria for transforming to SDSS magnitudes
-        # compute SDSS magnitudes only if sources are not saturated
-        mask = (bp > 4.0) * (rp > 4.0) * (g > 6.5)
-        # secondary masks for the SDSS filters
-        mask_g = (cat['g_SDSS'] > 15.0) * (cat['g_SDSS'] > g + 1.4 * bp_rp - 1.37)
-        mask_r = (cat['r_SDSS'] > 15.0) * (cat['r_SDSS'] > g + 0.7 * bp_rp - 1.50)
-        mask_i = (cat['i_SDSS'] > 15.0)
-        # set to NaN all magnitudes that do not satisfy the photometric criteria
-        cat['g_SDSS'][~(mask * mask_g)] = np.nan
-        cat['r_SDSS'][~(mask * mask_r)] = np.nan
-        cat['i_SDSS'][~(mask * mask_i)] = np.nan
-
-    elif catalog == 'gaiadr3':
-        print("Gaia DR3 to be implemented yet...")
-    else:
-        print("Must select 'gaiadr2' from now...")
-
-    return cat
 
 
 # astrometry (STDPipe)
