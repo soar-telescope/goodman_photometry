@@ -1401,24 +1401,36 @@ def get_vizier_catalog(
     return catalog_table
 
 
-
-# astrometry (STDPipe)
 def table_to_ldac(table, header=None, writeto=None):
+    """Converts an Astropy Table to an LDAC-style FITS HDU list.
+
+    Args:
+        table (astropy.table.Table): The data table to convert.
+        header (astropy.io.fits.Header, optional):
+            FITS header to include. If None, an empty header is used.
+        writeto (str, optional):
+            If provided, writes the HDU list to a FITS file.
+
+    Returns:
+        astropy.io.fits.HDUList:
+            The HDU list containing the primary, header, and data extensions.
+    """
 
     primary_hdu = fits.PrimaryHDU()
 
+    # Ensure header is valid
+    if header is None:
+        header = fits.Header()
+
     header_str = header.tostring(endcard=True)
-    # FIXME: this is a quick and dirty hack to preserve final 'END     ' in the string
-    # as astropy.io.fits tends to strip trailing whitespaces from string data, and it breaks at least SCAMP
+    # Preserve the final 'END' keyword for SCAMP compatibility
     header_str += fits.Header().tostring(endcard=True)
 
-    header_col = fits.Column(
-        name='Field Header Card', format='%dA' % len(header_str), array=[header_str]
-    )
-    header_hdu = fits.BinTableHDU.from_columns(fits.ColDefs([header_col]))
+    header_col = fits.Column(name='Field Header Card', format='A', array=[header_str])
+    header_hdu = fits.BinTableHDU.from_columns([header_col])
     header_hdu.header['EXTNAME'] = 'LDAC_IMHEAD'
 
-    data_hdu = fits.table_to_hdu(table)
+    data_hdu = fits.BinTableHDU.from_columns(table)
     data_hdu.header['EXTNAME'] = 'LDAC_OBJECTS'
 
     hdulist = fits.HDUList([primary_hdu, header_hdu, data_hdu])
@@ -1427,7 +1439,6 @@ def table_to_ldac(table, header=None, writeto=None):
         hdulist.writeto(writeto, overwrite=True)
 
     return hdulist
-
 
 # astrometry (STDPipe)
 def get_pixscale(wcs=None, filename=None, header=None):
