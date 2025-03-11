@@ -77,6 +77,5 @@ redphotometry = "goodman_photometry.photometry:goodman_photometry"
 packages = ["goodman_photometry"]
 
 
-
 [tool.setuptools_scm]
 version_file = "goodman_photometry/version.py"
