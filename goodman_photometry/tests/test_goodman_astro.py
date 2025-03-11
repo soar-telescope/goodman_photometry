@@ -17,7 +17,9 @@ from ..goodman_astro import (
     get_vizier_catalog,
     mask_field_of_view,
     table_to_ldac,
-    get_pixel_scale)
+    get_pixel_scale,
+    spherical_distance,
+    spherical_match)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -415,6 +417,118 @@ class TestGetPixelScale(unittest.TestCase):
         expected_scale = np.hypot(self.header['CD1_1'], self.header['CD2_1'])
         result = get_pixel_scale(filename=self.temp_fits.name)
         self.assertAlmostEqual(result, expected_scale, places=8)
+
+
+class TestSphericalDistance(unittest.TestCase):
+    def test_zero_distance(self):
+        """Test distance between identical coordinates (should be 0)."""
+        ra = 120.0
+        dec = -45.0
+        result = spherical_distance(ra, dec, ra, dec)
+        self.assertAlmostEqual(result, 0.0, places=10)
+
+    def test_known_distance(self):
+        """Test distance between two known points on the celestial sphere."""
+        ra1 = 0.0
+        dec1 = 0.0
+        ra2 = 0.0
+        dec2 = 90.0
+        result = spherical_distance(ra1, dec1, ra2, dec2)
+        self.assertAlmostEqual(result, 90.0, places=6)
+
+    def test_vectorized_inputs(self):
+        """Test array inputs for coordinate pairs."""
+        ra1 = np.array([0.0, 10.0])
+        dec1 = np.array([0.0, 10.0])
+        ra2 = np.array([0.0, 20.0])
+        dec2 = np.array([90.0, 10.0])
+
+        result = spherical_distance(ra1, dec1, ra2, dec2)
+
+        self.assertEqual(result.shape, (2,))
+        expected_distance = np.rad2deg(
+            np.arccos(
+                np.sin(np.deg2rad(dec1[1])) * np.sin(np.deg2rad(dec2[1])) +
+                np.cos(np.deg2rad(dec1[1])) * np.cos(np.deg2rad(dec2[1])) *
+                np.cos(np.deg2rad(ra1[1] - ra2[1]))
+            )
+        )
+        self.assertAlmostEqual(result[0], 90.0, places=6)  # (0,0) to (0,90)
+        self.assertAlmostEqual(result[1], expected_distance, places=6)
+
+    def test_antipodal_points(self):
+        """Test distance between antipodal points (should be 180 deg)."""
+        ra1 = 0.0
+        dec1 = 0.0
+        ra2 = 180.0
+        dec2 = 0.0
+        result = spherical_distance(ra1, dec1, ra2, dec2)
+        self.assertAlmostEqual(result, 180.0, places=6)
+
+
+class TestSphericalMatch(unittest.TestCase):
+    def test_exact_match(self):
+        """Test exact positional match between identical coordinate lists."""
+        ra = np.array([10.0, 20.0, 30.0])
+        dec = np.array([0.0, -10.0, +5.0])
+
+        idx1, idx2, dist = spherical_match(ra, dec, ra, dec, search_radius_deg=1/3600)
+
+        np.testing.assert_array_equal(idx1, np.array([0, 1, 2]))
+        np.testing.assert_array_equal(idx2, np.array([0, 1, 2]))
+        np.testing.assert_array_almost_equal(dist, 0.0, decimal=6)
+
+    def test_single_match_within_radius(self):
+        """Test single match just within search radius."""
+        ra1 = np.array([10.0])
+        dec1 = np.array([0.0])
+        ra2 = np.array([10.0001])  # ~0.36 arcsec separation
+        dec2 = np.array([0.0])
+
+        idx1, idx2, dist = spherical_match(ra1, dec1, ra2, dec2, search_radius_deg=1 / 3600)  # 1 arcsec
+
+        self.assertEqual(len(idx1), 1)
+        self.assertEqual(idx1[0], 0)
+        self.assertEqual(idx2[0], 0)
+        self.assertTrue(dist[0] < 1 / 3600)
+
+    def test_no_match_outside_radius(self):
+        """Test when no match should be found due to distance."""
+        ra1 = np.array([10.0])
+        dec1 = np.array([0.0])
+        ra2 = np.array([10.01])  # ~36 arcsec separation
+        dec2 = np.array([0.0])
+
+        idx1, idx2, dist = spherical_match(ra1, dec1, ra2, dec2, search_radius_deg=1 / 3600)  # 1 arcsec
+
+        self.assertEqual(len(idx1), 0)
+        self.assertEqual(len(idx2), 0)
+        self.assertEqual(len(dist), 0)
+
+    def test_multiple_matches(self):
+        """Test matching multiple objects within radius."""
+        ra1 = np.array([10.0, 20.0])
+        dec1 = np.array([0.0, 0.0])
+        ra2 = np.array([10.0, 20.0, 10.0002])
+        dec2 = np.array([0.0, 0.0, 0.0])
+
+        idx1, idx2, dist = spherical_match(ra1, dec1, ra2, dec2, search_radius_deg=1 / 3600)  # 1 arcsec
+
+        self.assertGreaterEqual(len(idx1), 2)
+        for d in dist:
+            self.assertTrue(d <= 1 / 3600)
+
+    def test_vectorized_inputs(self):
+        """Ensure function supports array inputs of different sizes."""
+        ra1 = np.linspace(0, 1, 10)
+        dec1 = np.zeros(10)
+        ra2 = np.linspace(0, 1, 100)
+        dec2 = np.zeros(100)
+
+        idx1, idx2, dist = spherical_match(ra1, dec1, ra2, dec2, search_radius_deg=5 / 3600)  # 5 arcsec
+
+        self.assertTrue(len(idx1) > 0)
+        self.assertTrue(np.all(dist >= 0.0))
 
 
 if __name__ == "__main__":

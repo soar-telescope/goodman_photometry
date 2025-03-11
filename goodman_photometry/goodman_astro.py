@@ -314,59 +314,72 @@ def create_bad_pixel_mask(image, saturation_threshold, binning):
     return mask
 
 
-# (STDPipe)
-def spherical_distance(ra1, dec1, ra2, dec2):
+def spherical_distance(ra_deg_1, dec_deg_1, ra_deg_2, dec_deg_2):
+    """Calculate the spherical angular distance between two celestial coordinates.
+
+    This function computes the great-circle distance between two points
+    on the celestial sphere using a trigonometric approximation formula.
+
+    Args:
+        ra_deg_1 (float or np.ndarray): Right ascension of the first point(s) in degrees.
+        dec_deg_1 (float or np.ndarray): Declination of the first point(s) in degrees.
+        ra_deg_2 (float or np.ndarray): Right ascension of the second point(s) in degrees.
+        dec_deg_2 (float or np.ndarray): Declination of the second point(s) in degrees.
+
+    Returns:
+        float or np.ndarray: Spherical angular distance(s) in degrees between the coordinate pairs.
     """
-      Evaluates the spherical distance between two sets of coordinates.
+    delta_ra_rad = np.deg2rad((ra_deg_1 - ra_deg_2) / 2.0)
+    delta_dec_rad = np.deg2rad((dec_deg_1 - dec_deg_2) / 2.0)
 
-        :param ra1: First point or set of points RA
-        :param dec1: First point or set of points Dec
-        :param ra2: Second point or set of points RA
-        :param dec2: Second point or set of points Dec
-        :returns: Spherical distance in degrees
+    sin_delta_ra_squared = np.sin(delta_ra_rad) ** 2
+    sin_delta_dec_squared = np.sin(delta_dec_rad) ** 2
+    cos_avg_dec_squared = np.cos(np.deg2rad((dec_deg_1 + dec_deg_2) / 2.0)) ** 2
 
-    """
-
-    x = np.sin(np.deg2rad((ra1 - ra2) / 2))
-    x *= x
-    y = np.sin(np.deg2rad((dec1 - dec2) / 2))
-    y *= y
-
-    z = np.cos(np.deg2rad((dec1 + dec2) / 2))
-    z *= z
-
-    return np.rad2deg(2 * np.arcsin(np.sqrt(x * (z - y) + y)))
-
-
-# (STDPipe)
-def spherical_match(ra1, dec1, ra2, dec2, sr=1 / 3600):
-    """
-      Positional match on the sphere for two lists of coordinates.
-
-      Aimed to be a direct replacement for :func:`esutil.htm.HTM.match` method with :code:`maxmatch=0`.
-
-        :param ra1: First set of points RA
-        :param dec1: First set of points Dec
-        :param ra2: Second set of points RA
-        :param dec2: Second set of points Dec
-        :param sr: Maximal acceptable pair distance to be considered a match, in degrees
-        :returns: Two parallel sets of indices corresponding to matches from first and second lists, along with the pairwise distances in degrees
-
-    """
-
-    # Ensure that inputs are arrays
-    ra1 = np.atleast_1d(ra1)
-    dec1 = np.atleast_1d(dec1)
-    ra2 = np.atleast_1d(ra2)
-    dec2 = np.atleast_1d(dec2)
-
-    idx1, idx2, dist, _ = search_around_sky(
-        SkyCoord(ra1, dec1, unit='deg'), SkyCoord(ra2, dec2, unit='deg'), sr * u.deg
+    angular_distance_rad = 2.0 * np.arcsin(
+        np.sqrt(sin_delta_ra_squared * (cos_avg_dec_squared - sin_delta_dec_squared) + sin_delta_dec_squared)
     )
 
-    dist = dist.deg  # convert to degrees
+    return np.rad2deg(angular_distance_rad)
 
-    return idx1, idx2, dist
+
+def spherical_match(
+    ra_deg_1,
+    dec_deg_1,
+    ra_deg_2,
+    dec_deg_2,
+    search_radius_deg=1 / 3600
+):
+    """Perform spherical positional matching between two lists of celestial coordinates.
+
+    Uses `astropy.coordinates.search_around_sky` to identify matches between two
+    sets of coordinates within a given angular search radius.
+
+    Args:
+        ra_deg_1 (float or np.ndarray): Right ascension of the first list (in degrees).
+        dec_deg_1 (float or np.ndarray): Declination of the first list (in degrees).
+        ra_deg_2 (float or np.ndarray): Right ascension of the second list (in degrees).
+        dec_deg_2 (float or np.ndarray): Declination of the second list (in degrees).
+        search_radius_deg (float, optional): Maximum allowed angular separation (in degrees)
+            to be considered a match. Default is 1 arcsecond (1/3600 degrees).
+
+    Returns:
+        tuple: A tuple of three arrays:
+            - matched_indices_1 (np.ndarray): Indices in the first list of matched coordinates.
+            - matched_indices_2 (np.ndarray): Indices in the second list of matched coordinates.
+            - matched_distances_deg (np.ndarray): Angular distances (in degrees) between matched pairs.
+    """
+    coordinates_1 = SkyCoord(ra_deg_1, dec_deg_1, unit='deg')
+    coordinates_2 = SkyCoord(ra_deg_2, dec_deg_2, unit='deg')
+
+    matched_indices_1, matched_indices_2, matched_distances, _ = search_around_sky(
+        coordinates_1,
+        coordinates_2,
+        search_radius_deg * u.deg
+    )
+
+    matched_distances_deg = matched_distances.deg
+    return matched_indices_1, matched_indices_2, matched_distances_deg
 
 
 # astrometry (STDPipe)
