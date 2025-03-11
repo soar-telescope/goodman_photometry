@@ -1,2 +1,2 @@
-from .astrometry import Astrometry
-from .photometry import Photometry
+from .astrometry import Astrometry # noqa
+from .photometry import Photometry # noqa

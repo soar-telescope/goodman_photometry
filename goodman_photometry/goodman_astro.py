@@ -78,7 +78,6 @@ def extract_observation_metadata(header):
             gain, read_noise, saturation_threshold, exposure_time)
 
 
-
 def calculate_saturation_threshold(gain_value, read_noise_value):
     """
     Estimates the saturation threshold based on the readout mode.
@@ -109,8 +108,6 @@ def calculate_saturation_threshold(gain_value, read_noise_value):
     return saturation_threshold
 
 
-
-# (F Navarete)
 def check_wcs(header):
     """
       Simple function to check whether the header has a WCS solution or not.

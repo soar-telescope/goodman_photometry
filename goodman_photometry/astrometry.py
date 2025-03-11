@@ -10,18 +10,18 @@ from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
 from .goodman_astro import (extract_observation_metadata,
-                           create_bad_pixel_mask,
-                           check_wcs,
-                           clear_wcs,
-                           dq_results,
-                           filter_sets,
-                           get_vizier_catalog,
-                           get_frame_center,
-                           get_objects_sextractor,
-                           get_pixel_scale,
-                           create_goodman_wcs,
-                           plot_image,
-                           refine_wcs_scamp)
+                            create_bad_pixel_mask,
+                            check_wcs,
+                            clear_wcs,
+                            dq_results,
+                            filter_sets,
+                            get_vizier_catalog,
+                            get_frame_center,
+                            get_objects_sextractor,
+                            get_pixel_scale,
+                            create_goodman_wcs,
+                            plot_image,
+                            refine_wcs_scamp)
 from .utils import get_astrometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
@@ -140,7 +140,7 @@ class Astrometry(object):
             hdu_list.writeto(self.filename.replace(".fits", "_wcs_init.fits"), overwrite=True)
 
         self.ra_0, self.dec_0, self.fov_radius = get_frame_center(wcs=self.wcs_init, width=self.image.shape[1], height=self.image.shape[0])
-        self.image_pixel_scale = get_pixscale(wcs=self.wcs_init)
+        self.image_pixel_scale = get_pixel_scale(wcs=self.wcs_init)
 
         self.log.info(f"Initial WCS: RA={self.ra_0} DEC={self.dec_0} SR={self.fov_radius} PIXSCALE={self.image_pixel_scale}")
 

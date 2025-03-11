@@ -263,6 +263,7 @@ class TestCreateBadPixelMask(unittest.TestCase):
         # Assert the result matches the expected mask
         np.testing.assert_array_equal(result, expected_mask)
 
+
 class TestGetVizierCatalog(unittest.TestCase):
 
     @patch('astroquery.vizier.core.VizierClass.query_region')
@@ -341,7 +342,7 @@ class TestTableToLDAC(unittest.TestCase):
         """Set up a sample Astropy table and header for testing."""
         self.table = Table({'col1': [1, 2, 3], 'col2': [4.5, 5.5, 6.5]})
         self.header = fits.Header()
-        self.header.set(keyword='TESTKEY', value= 'TESTVALUE')
+        self.header.set(keyword='TESTKEY', value='TESTVALUE')
         self.test_filename = "test_ldac.fits"
 
     def tearDown(self):
@@ -414,6 +415,7 @@ class TestGetPixelScale(unittest.TestCase):
         expected_scale = np.hypot(self.header['CD1_1'], self.header['CD2_1'])
         result = get_pixel_scale(filename=self.temp_fits.name)
         self.assertAlmostEqual(result, expected_scale, places=8)
+
 
 if __name__ == "__main__":
     unittest.main()

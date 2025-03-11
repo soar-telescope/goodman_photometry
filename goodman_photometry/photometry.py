@@ -9,20 +9,20 @@ from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
 from .goodman_astro import (create_bad_pixel_mask,
-                           calibrate_photometry,
-                           check_phot,
-                           check_wcs,
-                           dq_results,
-                           filter_sets,
-                           get_vizier_catalog,
-                           get_frame_center,
-                           extract_observation_metadata,
-                           get_objects_sextractor,
-                           get_pixel_scale,
-                           plot_photometric_match,
-                           plot_photcal,
-                           phot_table,
-                           phot_zeropoint)
+                            calibrate_photometry,
+                            check_phot,
+                            check_wcs,
+                            dq_results,
+                            filter_sets,
+                            get_vizier_catalog,
+                            get_frame_center,
+                            extract_observation_metadata,
+                            get_objects_sextractor,
+                            get_pixel_scale,
+                            plot_photometric_match,
+                            plot_photcal,
+                            phot_table,
+                            phot_zeropoint)
 from .goodman_astro import plot_image
 from .utils import get_photometry_args, setup_logging
 
@@ -91,7 +91,7 @@ class Photometry(object):
         center_ra, center_dec, fov_radius = get_frame_center(wcs=wcs,
                                                              width=width,
                                                              height=height)
-        self.pixel_scale = get_pixscale(wcs=wcs)
+        self.pixel_scale = get_pixel_scale(wcs=wcs)
 
         self.log.info(f"Frame center is {center_ra:.2f} {center_dec:.2f} "
                       f"radius {fov_radius * 60:.2f} arcmin,"
