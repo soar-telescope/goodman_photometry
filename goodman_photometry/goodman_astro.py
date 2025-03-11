@@ -1441,20 +1441,34 @@ def table_to_ldac(table, header=None, writeto=None):
 
     return hdulist
 
-# astrometry (STDPipe)
-def get_pixscale(wcs=None, filename=None, header=None):
-    '''
-    Returns pixel scale of an image in degrees per pixel.
-    Accepts either WCS structure, or FITS header, or filename
-    '''
-    if not wcs:
-        if header:
+
+def get_pixel_scale(wcs=None, filename=None, header=None):
+    """Returns the pixel scale of an image in degrees per pixel.
+
+    This function calculates the pixel scale from a WCS object, FITS header, or a FITS file.
+
+    Args:
+        wcs (astropy.wcs.WCS, optional): A precomputed WCS object.
+        filename (str, optional): Path to a FITS file. Used if `wcs` and `header` are not provided.
+        header (astropy.io.fits.Header, optional): A FITS header object. Used if `wcs` is not provided.
+
+    Returns:
+        float: Pixel scale in degrees per pixel.
+
+    Raises:
+        ValueError: If none of `wcs`, `header`, or `filename` is provided or WCS cannot be constructed.
+    """
+    if wcs is None:
+        if header is not None:
             wcs = WCS(header=header)
-        elif filename:
+        elif filename is not None:
             header = fits.getheader(filename, -1)
             wcs = WCS(header=header)
+        else:
+            raise ValueError("Must provide either `wcs`, `header`, or `filename` to calculate pixel scale.")
 
-    return np.hypot(wcs.pixel_scale_matrix[0, 0], wcs.pixel_scale_matrix[0, 1])
+    pixel_scale = np.hypot(wcs.pixel_scale_matrix[0, 0], wcs.pixel_scale_matrix[0, 1])
+    return pixel_scale
 
 
 # astrometry (STDPipe)

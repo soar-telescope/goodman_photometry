@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 import os
 from unittest.mock import patch
@@ -15,7 +16,8 @@ from ..goodman_astro import (
     extract_observation_metadata,
     get_vizier_catalog,
     mask_field_of_view,
-    table_to_ldac)
+    table_to_ldac,
+    get_pixel_scale)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -381,6 +383,37 @@ class TestTableToLDAC(unittest.TestCase):
             self.assertEqual(hdulist[1].header['EXTNAME'], 'LDAC_IMHEAD')
             self.assertEqual(hdulist[2].header['EXTNAME'], 'LDAC_OBJECTS')
 
+
+class TestGetPixelScale(unittest.TestCase):
+    def setUp(self):
+        # Create a minimal WCS header with a known pixel scale
+        self.header = fits.Header()
+        self.header['NAXIS'] = 2
+        self.header['CTYPE1'] = 'RA---TAN'
+        self.header['CTYPE2'] = 'DEC--TAN'
+        self.header['CRPIX1'] = 100.0
+        self.header['CRPIX2'] = 100.0
+        self.header['CRVAL1'] = 0.0
+        self.header['CRVAL2'] = 0.0
+        self.header['CD1_1'] = -0.000277778
+        self.header['CD1_2'] = 0.0
+        self.header['CD2_1'] = 0.0
+        self.header['CD2_2'] = 0.000277778
+
+        # Create temporary FITS file with this header
+        self.temp_fits = tempfile.NamedTemporaryFile(suffix='.fits', delete=False)
+        hdu = fits.PrimaryHDU(data=np.zeros((100, 100)), header=self.header)
+        hdu.writeto(self.temp_fits.name, overwrite=True)
+
+    def tearDown(self):
+        # Clean up the temp file
+        if os.path.exists(self.temp_fits.name):
+            os.remove(self.temp_fits.name)
+
+    def test_get_pixel_scale_from_file(self):
+        expected_scale = np.hypot(self.header['CD1_1'], self.header['CD2_1'])
+        result = get_pixel_scale(filename=self.temp_fits.name)
+        self.assertAlmostEqual(result, expected_scale, places=8)
 
 if __name__ == "__main__":
     unittest.main()

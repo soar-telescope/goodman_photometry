@@ -18,7 +18,7 @@ from .goodman_astro import (extract_observation_metadata,
                            get_vizier_catalog,
                            get_frame_center,
                            get_objects_sextractor,
-                           get_pixscale,
+                           get_pixel_scale,
                            create_goodman_wcs,
                            plot_image,
                            refine_wcs_scamp)
