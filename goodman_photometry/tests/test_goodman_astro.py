@@ -339,7 +339,7 @@ class TestTableToLDAC(unittest.TestCase):
         """Set up a sample Astropy table and header for testing."""
         self.table = Table({'col1': [1, 2, 3], 'col2': [4.5, 5.5, 6.5]})
         self.header = fits.Header()
-        self.header['TESTKEY'] = 'TESTVALUE'
+        self.header.set(keyword='TESTKEY', value= 'TESTVALUE')
         self.test_filename = "test_ldac.fits"
 
     def tearDown(self):
@@ -360,6 +360,7 @@ class TestTableToLDAC(unittest.TestCase):
 
         # Check that header information is stored
         header_data = hdulist[1].data['Field Header Card'][0]
+
         self.assertIn('TESTKEY', header_data)
 
         # Check table data

@@ -15,6 +15,7 @@ from astropy import units as u
 from astropy import wcs
 from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io import fits as fits
+from astropy.io.fits import table_to_hdu
 from astropy.table import Table
 from astropy.time import Time
 from astropy.visualization import simple_norm
@@ -1426,11 +1427,11 @@ def table_to_ldac(table, header=None, writeto=None):
     # Preserve the final 'END' keyword for SCAMP compatibility
     header_str += fits.Header().tostring(endcard=True)
 
-    header_col = fits.Column(name='Field Header Card', format='A', array=[header_str])
+    header_col = fits.Column(name='Field Header Card', format='80A', array=[header_str])
     header_hdu = fits.BinTableHDU.from_columns([header_col])
     header_hdu.header['EXTNAME'] = 'LDAC_IMHEAD'
 
-    data_hdu = fits.BinTableHDU.from_columns(table)
+    data_hdu = table_to_hdu(table)
     data_hdu.header['EXTNAME'] = 'LDAC_OBJECTS'
 
     hdulist = fits.HDUList([primary_hdu, header_hdu, data_hdu])
