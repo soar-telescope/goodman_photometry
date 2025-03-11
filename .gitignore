@@ -2,3 +2,9 @@
 /goodman_photometry/version.py
 /dist/
 .tox/
+.coverage
+.python-version
+coverage.xml
+*.egg-info
+*__pycache__*
+build
