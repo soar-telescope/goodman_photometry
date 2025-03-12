@@ -632,7 +632,7 @@ def get_objects_sextractor(
     if not r0:
         opts['FILTER'] = 'N'
     else:
-        kernel = make_kernel(r0, ext=2.0)
+        kernel = make_kernel(core_radius=r0, extent_factor=2.0)
         kernelname = os.path.join(workdir, 'kernel.txt')
         np.savetxt(
             kernelname,
@@ -779,16 +779,29 @@ def get_objects_sextractor(
     return result
 
 
-# phot (STDPipe)
-def make_kernel(r0=1.0, ext=1.0):
-    x, y = np.mgrid[
-        np.floor(-ext * r0): np.ceil(ext * r0 + 1),
-        np.floor(-ext * r0): np.ceil(ext * r0 + 1),
-    ]
-    r = np.hypot(x, y)
-    image = np.exp(-r ** 2 / 2 / r0 ** 2)
+def make_kernel(core_radius: float = 1.0, extent_factor: float = 1.0) -> np.ndarray:
+    """Generate a 2D Gaussian kernel image.
 
-    return image
+    The kernel is centered at the origin and defined using a Gaussian profile
+    with a specified core radius and extent.
+
+    Args:
+        core_radius (float, optional): The Gaussian core radius (standard deviation). Defaults to 1.0.
+        extent_factor (float, optional): Extent of the kernel in units of core radius.
+            Determines the size of the kernel array. Defaults to 1.0.
+
+    Returns:
+        np.ndarray: A 2D numpy array representing the Gaussian kernel.
+    """
+    x, y = np.mgrid[
+        np.floor(-extent_factor * core_radius): np.ceil(extent_factor * core_radius + 1),
+        np.floor(-extent_factor * core_radius): np.ceil(extent_factor * core_radius + 1),
+    ]
+
+    radial_distance = np.hypot(x, y)
+    kernel = np.exp(-radial_distance**2 / (2 * core_radius**2))
+
+    return kernel
 
 
 # phot (F Navarete)

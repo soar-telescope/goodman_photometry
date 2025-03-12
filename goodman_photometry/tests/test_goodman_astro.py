@@ -20,7 +20,9 @@ from ..goodman_astro import (
     table_to_ldac,
     get_pixel_scale,
     spherical_distance,
-    spherical_match, get_frame_center)
+    spherical_match,
+    get_frame_center,
+    make_kernel)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -592,6 +594,40 @@ class TestGetFrameCenter(unittest.TestCase):
         self.assertIsNone(ra)
         self.assertIsNone(dec)
         self.assertIsNone(radius)
+
+
+class TestMakeKernel(unittest.TestCase):
+    def test_kernel_shape_default(self):
+        """Test default kernel shape with core_radius=1.0, extent=1.0."""
+        kernel = make_kernel()
+        expected_size = int(np.ceil(1.0 * 1.0 + 1) - np.floor(-1.0 * 1.0))
+        self.assertEqual(kernel.shape, (expected_size, expected_size))
+
+    def test_kernel_shape_custom(self):
+        """Test kernel shape for various input values."""
+        core_radius = 2.0
+        extent = 1.5
+        kernel = make_kernel(core_radius, extent)
+        expected_size = int(np.ceil(extent * core_radius + 1) - np.floor(-extent * core_radius))
+        self.assertEqual(kernel.shape, (expected_size, expected_size))
+
+    def test_kernel_peak_at_center(self):
+        """Test that the maximum value is at the center of the kernel."""
+        kernel = make_kernel(core_radius=1.0, extent_factor=3.0)
+        center = tuple(s // 2 for s in kernel.shape)
+        self.assertEqual(np.argmax(kernel), np.ravel_multi_index(center, kernel.shape))
+
+    def test_kernel_symmetry(self):
+        """Test that the kernel is symmetric along both axes."""
+        kernel = make_kernel()
+        self.assertTrue(np.allclose(kernel, kernel[::-1, :]))  # vertical symmetry
+        self.assertTrue(np.allclose(kernel, kernel[:, ::-1]))  # horizontal symmetry
+
+    def test_kernel_positive_values(self):
+        """Test that all kernel values are positive and finite."""
+        kernel = make_kernel()
+        self.assertTrue(np.all(kernel >= 0))
+        self.assertTrue(np.all(np.isfinite(kernel)))
 
 
 if __name__ == "__main__":
