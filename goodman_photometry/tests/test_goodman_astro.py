@@ -24,7 +24,8 @@ from ..goodman_astro import (
     get_frame_center,
     make_kernel,
     evaluate_data_quality_results,
-    file_write)
+    file_write,
+    table_get_column)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -728,6 +729,37 @@ class TestFileWrite(unittest.TestCase):
             self.assertEqual(content, "")
 
         os.remove(tmp.name)
+
+
+class TestTableGetColumn(unittest.TestCase):
+
+    def setUp(self):
+        self.table = Table({
+            'fwhm': [1.2, 1.5, 1.4],
+            'flux': [100, 120, 110]
+        })
+
+    def test_column_exists(self):
+        """Return actual column if it exists."""
+        result = table_get_column(self.table, 'fwhm')
+        np.testing.assert_array_equal(result, self.table['fwhm'])
+
+    def test_column_missing_scalar_default(self):
+        """Return scalar default broadcasted if column is missing."""
+        result = table_get_column(self.table, 'ellipticity', default=42)
+        expected = np.full(len(self.table), 42, dtype=int)
+        np.testing.assert_array_equal(result, expected)
+
+    def test_column_missing_array_default(self):
+        """Return array default directly if column is missing."""
+        default_array = [0.1, 0.2, 0.3]
+        result = table_get_column(self.table, 'ellipticity', default=default_array)
+        np.testing.assert_array_equal(result, default_array)
+
+    def test_column_missing_none_default(self):
+        """Return None if column is missing and default is None."""
+        result = table_get_column(self.table, 'ellipticity', default=None)
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

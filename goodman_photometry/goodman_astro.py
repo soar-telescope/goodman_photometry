@@ -857,22 +857,30 @@ def file_write(filename: str, contents: str = None, append: bool = False) -> Non
             file.write(contents)
 
 
-# utils (STDPipe)
-def table_get(table, colname, default=0):
-    """
-    Simple wrapper to get table column, or default value if it is not present
-    """
+def table_get_column(table: Table, column_name: str, default=0):
+    """Get a column from an astropy table, or return a default value if it is missing.
 
-    if colname in table.colnames:
-        return table[colname]
-    elif default is None:
+    This is a convenience wrapper to safely access a column in a table.
+
+    Args:
+        table (astropy.table.Table): Input table.
+        column_name (str): Name of the column to retrieve.
+        default (scalar or array-like, optional): Default value to return if the column is not found.
+            If scalar, it will be broadcasted to match the table length.
+            If array-like, it will be returned directly.
+            If None, the function returns None.
+
+    Returns:
+        np.ndarray or None: The column values if found, otherwise the default value
+        broadcasted or returned as-is depending on its type.
+    """
+    if column_name in table.colnames:
+        return table[column_name]
+    if default is None:
         return None
-    elif hasattr(default, '__len__'):
-        # default value is array, return it
+    if hasattr(default, '__len__'):
         return default
-    else:
-        # Broadcast scalar to proper length
-        return default * np.ones(len(table), dtype=int)
+    return np.full(len(table), default, dtype=int)
 
 
 # utils (STDPipe)
@@ -1687,10 +1695,10 @@ def refine_wcs_scamp(
                 data={
                     'X_WORLD': cat[cat_col_ra],
                     'Y_WORLD': cat[cat_col_dec],
-                    'ERRA_WORLD': table_get(cat, cat_col_ra_err, 1 / 3600),
-                    'ERRB_WORLD': table_get(cat, cat_col_dec_err, 1 / 3600),
-                    'MAG': table_get(cat, cat_col_mag, 0),
-                    'MAGERR': table_get(cat, cat_col_mag_err, 0.01),
+                    'ERRA_WORLD': table_get_column(cat, cat_col_ra_err, 1 / 3600),
+                    'ERRB_WORLD': table_get_column(cat, cat_col_dec_err, 1 / 3600),
+                    'MAG': table_get_column(cat, cat_col_mag, 0),
+                    'MAGERR': table_get_column(cat, cat_col_mag_err, 0.01),
                     'OBSDATE': np.ones_like(cat[cat_col_ra]) * 2000.0,
                     'FLAGS': np.zeros_like(cat[cat_col_ra], dtype=int),
                 }
