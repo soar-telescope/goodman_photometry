@@ -8,6 +8,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
+from astropy.wcs import WCS
 
 from ..goodman_astro import (
     calculate_saturation_threshold,
@@ -19,7 +20,7 @@ from ..goodman_astro import (
     table_to_ldac,
     get_pixel_scale,
     spherical_distance,
-    spherical_match)
+    spherical_match, get_frame_center)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -529,6 +530,68 @@ class TestSphericalMatch(unittest.TestCase):
 
         self.assertTrue(len(idx1) > 0)
         self.assertTrue(np.all(dist >= 0.0))
+
+
+class TestGetFrameCenter(unittest.TestCase):
+    def setUp(self):
+        self.header = fits.Header()
+        self.header['NAXIS'] = 2
+        self.header['NAXIS1'] = 200
+        self.header['NAXIS2'] = 100
+        self.header['CTYPE1'] = 'RA---TAN'
+        self.header['CTYPE2'] = 'DEC--TAN'
+        self.header['CRPIX1'] = 100.0
+        self.header['CRPIX2'] = 50.0
+        self.header['CRVAL1'] = 180.0
+        self.header['CRVAL2'] = -30.0
+        self.header['CD1_1'] = -0.00027
+        self.header['CD1_2'] = 0.0
+        self.header['CD2_1'] = 0.0
+        self.header['CD2_2'] = 0.00027
+
+        self.wcs = WCS(self.header)
+
+    def test_center_from_wcs(self):
+        """Test center calculation directly from WCS."""
+        ra, dec, radius = get_frame_center(wcs=self.wcs, width=200, height=100)
+        self.assertAlmostEqual(ra, 180.0, places=4)
+        self.assertAlmostEqual(dec, -30.0, places=4)
+        self.assertTrue(radius > 0)
+
+    def test_center_from_header(self):
+        """Test center calculation from FITS header."""
+        ra, dec, radius = get_frame_center(header=self.header)
+        self.assertAlmostEqual(ra, 180.0, places=4)
+        self.assertAlmostEqual(dec, -30.0, places=4)
+        self.assertTrue(radius > 0)
+
+    def test_center_from_file(self):
+        """Test center calculation from FITS file."""
+        with tempfile.NamedTemporaryFile(suffix='.fits', delete=False) as tmpfile:
+            hdu = fits.PrimaryHDU(data=np.zeros((100, 200)), header=self.header)
+            hdu.writeto(tmpfile.name, overwrite=True)
+            ra, dec, radius = get_frame_center(filename=tmpfile.name)
+            self.assertAlmostEqual(ra, 180.0, places=4)
+            self.assertAlmostEqual(dec, -30.0, places=4)
+            self.assertTrue(radius > 0)
+            os.remove(tmpfile.name)
+
+    def test_center_with_shape_fallback(self):
+        """Test fallback shape-based width/height when header is incomplete."""
+        header = self.header.copy()
+        del header['NAXIS1']
+        del header['NAXIS2']
+        ra, dec, radius = get_frame_center(header=header, shape=(100, 200))
+        self.assertAlmostEqual(ra, 180.0, places=4)
+        self.assertAlmostEqual(dec, -30.0, places=4)
+        self.assertTrue(radius > 0)
+
+    def test_no_wcs_available(self):
+        """Test return when no WCS can be constructed."""
+        ra, dec, radius = get_frame_center(header=fits.Header())
+        self.assertIsNone(ra)
+        self.assertIsNone(dec)
+        self.assertIsNone(radius)
 
 
 if __name__ == "__main__":

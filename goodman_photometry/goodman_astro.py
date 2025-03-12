@@ -382,7 +382,6 @@ def spherical_match(
     return matched_indices_1, matched_indices_2, matched_distances_deg
 
 
-# astrometry (STDPipe)
 def get_frame_center(filename=None, header=None, wcs=None, width=None, height=None, shape=None):
     """
       Returns image center RA, Dec, and radius in degrees.
