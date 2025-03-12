@@ -382,36 +382,56 @@ def spherical_match(
     return matched_indices_1, matched_indices_2, matched_distances_deg
 
 
-def get_frame_center(filename=None, header=None, wcs=None, width=None, height=None, shape=None):
+def get_frame_center(
+    filename: str = None,
+    header: fits.Header = None,
+    wcs: WCS = None,
+    image_width: int = None,
+    image_height: int = None,
+    image_shape: tuple = None
+):
+    """Calculate the central coordinates (RA, Dec) and field radius of an image.
+
+    The function accepts either a WCS object, a FITS header, or a FITS file path.
+    If image dimensions are not provided, they will be extracted from the header
+    or the image shape.
+
+    Args:
+        filename (str, optional): Path to the FITS file.
+        header (astropy.io.fits.Header, optional): FITS header object.
+        wcs (astropy.wcs.WCS, optional): World Coordinate System object.
+        image_width (int, optional): Width of the image in pixels.
+        image_height (int, optional): Height of the image in pixels.
+        image_shape (tuple, optional): Image shape as (height, width), used as fallback.
+
+    Returns:
+        tuple: A tuple of (ra_center, dec_center, search_radius), in degrees.
+            If a valid celestial WCS is not available, all values will be None.
     """
-      Returns image center RA, Dec, and radius in degrees.
-      Accepts either filename, or FITS header, or WCS structure
-    """
-    if not wcs:
-        if header:
+    if wcs is None:
+        if header is not None:
             wcs = WCS(header)
-        elif filename:
+        elif filename is not None:
             header = fits.getheader(filename, -1)
             wcs = WCS(header)
 
-    if width is None or height is None:
+    if image_width is None or image_height is None:
         if header is not None:
-            width = header['NAXIS1']
-            height = header['NAXIS2']
-        elif shape is not None:
-            height, width = shape
+            image_width = header.get('NAXIS1')
+            image_height = header.get('NAXIS2')
+        if (image_width is None or image_height is None) and image_shape is not None:
+            image_height, image_width = image_shape
 
-    if not wcs or not wcs.is_celestial:
+    if wcs is None or not wcs.is_celestial or image_width is None or image_height is None:
         return None, None, None
 
-    # ra1, dec1 = wcs.all_pix2world(0, 0, 0)
-    # Goodman has a circular FOV, so we need to set the origin at the center of the x-axis to estimate the radius of the FOV, not x=0.
-    ra1, dec1 = wcs.all_pix2world(width / 2, 0, 0)
-    ra0, dec0 = wcs.all_pix2world(width / 2, height / 2, 0)
+    # Compute RA/Dec at center and top-center pixel for radius estimation
+    ra_top, dec_top = wcs.all_pix2world(image_width / 2.0, 0.0, 0)
+    ra_center, dec_center = wcs.all_pix2world(image_width / 2.0, image_height / 2.0, 0)
 
-    sr = spherical_distance(ra0, dec0, ra1, dec1)
+    search_radius = spherical_distance(ra_center, dec_center, ra_top, dec_top)
 
-    return ra0.item(), dec0.item(), sr.item()
+    return ra_center.item(), dec_center.item(), search_radius.item()
 
 
 # phot (STDPipe)

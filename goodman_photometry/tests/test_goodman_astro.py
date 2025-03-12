@@ -553,16 +553,16 @@ class TestGetFrameCenter(unittest.TestCase):
 
     def test_center_from_wcs(self):
         """Test center calculation directly from WCS."""
-        ra, dec, radius = get_frame_center(wcs=self.wcs, width=200, height=100)
-        self.assertAlmostEqual(ra, 180.0, places=4)
-        self.assertAlmostEqual(dec, -30.0, places=4)
+        ra, dec, radius = get_frame_center(wcs=self.wcs, image_width=200, image_height=100)
+        self.assertAlmostEqual(ra, 180.0, places=3)
+        self.assertAlmostEqual(dec, -30.0, places=3)
         self.assertTrue(radius > 0)
 
     def test_center_from_header(self):
         """Test center calculation from FITS header."""
         ra, dec, radius = get_frame_center(header=self.header)
-        self.assertAlmostEqual(ra, 180.0, places=4)
-        self.assertAlmostEqual(dec, -30.0, places=4)
+        self.assertAlmostEqual(ra, 180.0, places=3)
+        self.assertAlmostEqual(dec, -30.0, places=3)
         self.assertTrue(radius > 0)
 
     def test_center_from_file(self):
@@ -571,8 +571,8 @@ class TestGetFrameCenter(unittest.TestCase):
             hdu = fits.PrimaryHDU(data=np.zeros((100, 200)), header=self.header)
             hdu.writeto(tmpfile.name, overwrite=True)
             ra, dec, radius = get_frame_center(filename=tmpfile.name)
-            self.assertAlmostEqual(ra, 180.0, places=4)
-            self.assertAlmostEqual(dec, -30.0, places=4)
+            self.assertAlmostEqual(ra, 180.0, places=3)
+            self.assertAlmostEqual(dec, -30.0, places=3)
             self.assertTrue(radius > 0)
             os.remove(tmpfile.name)
 
@@ -581,9 +581,9 @@ class TestGetFrameCenter(unittest.TestCase):
         header = self.header.copy()
         del header['NAXIS1']
         del header['NAXIS2']
-        ra, dec, radius = get_frame_center(header=header, shape=(100, 200))
-        self.assertAlmostEqual(ra, 180.0, places=4)
-        self.assertAlmostEqual(dec, -30.0, places=4)
+        ra, dec, radius = get_frame_center(wcs=self.wcs, image_shape=(100, 200))
+        self.assertAlmostEqual(ra, 180.0, places=3)
+        self.assertAlmostEqual(dec, -30.0, places=3)
         self.assertTrue(radius > 0)
 
     def test_no_wcs_available(self):

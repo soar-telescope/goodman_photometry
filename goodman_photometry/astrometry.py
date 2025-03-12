@@ -139,7 +139,7 @@ class Astrometry(object):
             hdu_list = fits.HDUList([hdu])
             hdu_list.writeto(self.filename.replace(".fits", "_wcs_init.fits"), overwrite=True)
 
-        self.ra_0, self.dec_0, self.fov_radius = get_frame_center(wcs=self.wcs_init, width=self.image.shape[1], height=self.image.shape[0])
+        self.ra_0, self.dec_0, self.fov_radius = get_frame_center(wcs=self.wcs_init, image_width=self.image.shape[1], image_height=self.image.shape[0])
         self.image_pixel_scale = get_pixel_scale(wcs=self.wcs_init)
 
         self.log.info(f"Initial WCS: RA={self.ra_0} DEC={self.dec_0} SR={self.fov_radius} PIXSCALE={self.image_pixel_scale}")

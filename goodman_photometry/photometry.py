@@ -89,8 +89,8 @@ class Photometry(object):
 
         wcs = check_wcs(header=header)
         center_ra, center_dec, fov_radius = get_frame_center(wcs=wcs,
-                                                             width=width,
-                                                             height=height)
+                                                             image_width=width,
+                                                             image_height=height)
         self.pixel_scale = get_pixel_scale(wcs=wcs)
 
         self.log.info(f"Frame center is {center_ra:.2f} {center_dec:.2f} "
