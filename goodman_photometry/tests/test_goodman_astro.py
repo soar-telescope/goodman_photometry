@@ -23,7 +23,8 @@ from ..goodman_astro import (
     spherical_match,
     get_frame_center,
     make_kernel,
-    evaluate_data_quality_results)
+    evaluate_data_quality_results,
+    file_write)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -688,6 +689,45 @@ class TestEvaluateDataQualityResults(unittest.TestCase):
         self.assertGreaterEqual(fwhm_error, 0)
         self.assertGreater(ellipticity, 0)
         self.assertGreaterEqual(ellipticity_error, 0)
+
+
+class TestFileWrite(unittest.TestCase):
+
+    def test_write_mode(self):
+        """Test writing content to file (overwrite mode)."""
+        with tempfile.NamedTemporaryFile(mode='r+', delete=False) as tmp:
+            file_write(tmp.name, contents="Hello world!", append=False)
+
+            tmp.seek(0)
+            content = tmp.read()
+            self.assertEqual(content, "Hello world!")
+
+        os.remove(tmp.name)
+
+    def test_append_mode(self):
+        """Test appending content to an existing file."""
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as tmp:
+            tmp.write("First line.\n")
+            tmp.flush()
+
+            file_write(tmp.name, contents="Second line.\n", append=True)
+
+            tmp.seek(0)
+            content = tmp.read()
+            self.assertEqual(content, "First line.\nSecond line.\n")
+
+        os.remove(tmp.name)
+
+    def test_no_content(self):
+        """Test that file is created but empty when no contents are passed."""
+        with tempfile.NamedTemporaryFile(mode='r+', delete=False) as tmp:
+            file_write(tmp.name, contents=None, append=False)
+
+            tmp.seek(0)
+            content = tmp.read()
+            self.assertEqual(content, "")
+
+        os.remove(tmp.name)
 
 
 if __name__ == "__main__":

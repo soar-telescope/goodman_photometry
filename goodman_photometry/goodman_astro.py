@@ -840,15 +840,21 @@ def evaluate_data_quality_results(source_catalog: Table):
     return fwhm, fwhm_error, ellipticity, ellipticity_error
 
 
-# Utils (STDPipe)
-def file_write(filename, contents=None, append=False):
-    """
-    Simple utility for writing some contents into file.
-    """
+def file_write(filename: str, contents: str = None, append: bool = False) -> None:
+    """Write content to a file.
 
-    with open(filename, 'a' if append else 'w') as f:
+    Opens the file in write or append mode and writes the given content to it.
+
+    Args:
+        filename (str): Path to the file to write to.
+        contents (str, optional): The content to be written into the file. If None, nothing is written.
+        append (bool, optional): If True, content is appended to the file.
+            If False (default), the file is overwritten.
+    """
+    mode = 'a' if append else 'w'
+    with open(filename, mode) as file:
         if contents is not None:
-            f.write(contents)
+            file.write(contents)
 
 
 # utils (STDPipe)
