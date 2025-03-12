@@ -22,7 +22,8 @@ from ..goodman_astro import (
     spherical_distance,
     spherical_match,
     get_frame_center,
-    make_kernel)
+    make_kernel,
+    evaluate_data_quality_results)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -628,6 +629,65 @@ class TestMakeKernel(unittest.TestCase):
         kernel = make_kernel()
         self.assertTrue(np.all(kernel >= 0))
         self.assertTrue(np.all(np.isfinite(kernel)))
+
+
+class TestEvaluateDataQualityResults(unittest.TestCase):
+    def test_dq_results_typical_case(self):
+        """Test data quality evaluation with a typical mock catalog."""
+        catalog = Table({
+            'fwhm': [2.0, 2.2, 2.1, 1.9, 2.0],
+            'a': [3.0, 3.1, 2.9, 3.0, 3.2],
+            'b': [2.5, 2.4, 2.6, 2.3, 2.7]
+        })
+
+        fwhm, fwhm_error, ellipticity, ellipticity_error = evaluate_data_quality_results(catalog)
+
+        expected_fwhm = np.median(catalog['fwhm'])
+        expected_fwhm_error = np.median(np.abs(catalog['fwhm'] - expected_fwhm))
+
+        expected_a = np.median(catalog['a'])
+        expected_b = np.median(catalog['b'])
+        expected_ellipticity = 1.0 - (expected_b / expected_a)
+
+        expected_a_err = np.median(np.abs(catalog['a'] - expected_a))
+        expected_b_err = np.median(np.abs(catalog['b'] - expected_b))
+        expected_ell_error = expected_ellipticity * np.sqrt(
+            (expected_a_err / expected_a) ** 2 + (expected_b_err / expected_b) ** 2
+        )
+
+        self.assertAlmostEqual(fwhm, expected_fwhm, places=6)
+        self.assertAlmostEqual(fwhm_error, expected_fwhm_error, places=6)
+        self.assertAlmostEqual(ellipticity, expected_ellipticity, places=6)
+        self.assertAlmostEqual(ellipticity_error, expected_ell_error, places=6)
+
+    def test_dq_results_all_equal(self):
+        """Test case where all values are identical (no dispersion)."""
+        catalog = Table({
+            'fwhm': [2.0] * 5,
+            'a': [3.0] * 5,
+            'b': [2.0] * 5
+        })
+
+        fwhm, fwhm_error, ellipticity, ellipticity_error = evaluate_data_quality_results(catalog)
+
+        self.assertEqual(fwhm, 2.0)
+        self.assertEqual(fwhm_error, 0.0)
+        self.assertAlmostEqual(ellipticity, 1.0 - 2.0 / 3.0, places=6)
+        self.assertEqual(ellipticity_error, 0.0)
+
+    def test_dq_results_small_catalog(self):
+        """Test function with a small catalog (2 entries)."""
+        catalog = Table({
+            'fwhm': [1.5, 2.5],
+            'a': [2.0, 4.0],
+            'b': [1.0, 2.0]
+        })
+
+        fwhm, fwhm_error, ellipticity, ellipticity_error = evaluate_data_quality_results(catalog)
+        self.assertGreater(fwhm, 0)
+        self.assertGreaterEqual(fwhm_error, 0)
+        self.assertGreater(ellipticity, 0)
+        self.assertGreaterEqual(ellipticity_error, 0)
 
 
 if __name__ == "__main__":

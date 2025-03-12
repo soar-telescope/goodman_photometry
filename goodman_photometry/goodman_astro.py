@@ -804,33 +804,40 @@ def make_kernel(core_radius: float = 1.0, extent_factor: float = 1.0) -> np.ndar
     return kernel
 
 
-# phot (F Navarete)
-def dq_results(dq_obj):
+def evaluate_data_quality_results(source_catalog: Table):
+    """Evaluate data quality metrics from a source detection catalog.
+
+    This function processes the results of `get_objects_sextractor()` or a similar
+    source detection catalog, computing median image quality indicators like FWHM
+    and ellipticity.
+
+    Args:
+        source_catalog (astropy.table.Table): Catalog of detected sources containing
+            columns 'fwhm', 'a' (major axis), and 'b' (minor axis).
+
+    Returns:
+        tuple:
+            - fwhm (float): Median FWHM of the sources in pixels.
+            - fwhm_error (float): Median absolute deviation (MAD) of FWHM in pixels.
+            - ellipticity (float): Median ellipticity of the sources (1 - b/a).
+            - ellipticity_error (float): Propagated error of the ellipticity estimate.
     """
-      Reads output from get_objects_sextractor() and evaluates Data Quality results.
+    fwhm = np.median(source_catalog['fwhm'])
+    fwhm_error = np.median(np.abs(source_catalog['fwhm'] - fwhm))
 
-        dq_obj (astropy.table.Table): output from get_objects_sextractor()
+    major_axis_median = np.median(source_catalog['a'])
+    minor_axis_median = np.median(source_catalog['b'])
 
-      Returns:
-        fwhm       (float): median FWHM of the sources (in pixels)
-        fwhm_error (float): median absolute error of the FWHM values (in pixels)
-        ell        (float): median ellipticity of the sources
-        ell_error  (float): median absolute error of the ellipticity values
-    """
+    major_axis_error = np.median(np.abs(source_catalog['a'] - major_axis_median))
+    minor_axis_error = np.median(np.abs(source_catalog['b'] - minor_axis_median))
 
-    # get FWHM from detections (using median and median absolute deviation as error)
-    fwhm = np.median(dq_obj['fwhm'])
-    fwhm_error = np.median(np.absolute(dq_obj['fwhm'] - np.median(dq_obj['fwhm'])))
+    ellipticity = 1.0 - (minor_axis_median / major_axis_median)
+    ellipticity_error = ellipticity * np.sqrt(
+        (major_axis_error / major_axis_median) ** 2 +
+        (minor_axis_error / minor_axis_median) ** 2
+    )
 
-    # estimate median ellipticity of the sources (ell = 1 - b/a)
-    med_a = np.median(dq_obj['a'])  # major axis
-    med_b = np.median(dq_obj['b'])  # minor axis
-    med_a_error = np.median(np.absolute(dq_obj['a'] - np.median(dq_obj['a'])))
-    med_b_error = np.median(np.absolute(dq_obj['b'] - np.median(dq_obj['b'])))
-    ell = 1 - med_b / med_a
-    ell_error = ell * np.sqrt((med_a_error / med_a) ** 2 + (med_b_error / med_b) ** 2)
-
-    return fwhm, fwhm_error, ell, ell_error
+    return fwhm, fwhm_error, ellipticity, ellipticity_error
 
 
 # Utils (STDPipe)

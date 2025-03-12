@@ -13,7 +13,7 @@ from .goodman_astro import (extract_observation_metadata,
                             create_bad_pixel_mask,
                             check_wcs,
                             clear_wcs,
-                            dq_results,
+                            evaluate_data_quality_results,
                             filter_sets,
                             get_vizier_catalog,
                             get_frame_center,
@@ -195,7 +195,7 @@ class Astrometry(object):
 
         self.log.info(f"Image - Detected objects (FLAG=0): {plot_detections_flag_0_filename}")
 
-        fwhm, fwhm_error, ellipticity, ellipticity_error = dq_results(data_quality_sources)
+        fwhm, fwhm_error, ellipticity, ellipticity_error = evaluate_data_quality_results(data_quality_sources)
 
         self.log.info("Data quality results")
         self.log.info(f"Number of objects: {len(data_quality_sources)}/{len(self.sources)}")

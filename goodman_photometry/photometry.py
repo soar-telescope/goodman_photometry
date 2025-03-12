@@ -12,7 +12,7 @@ from .goodman_astro import (create_bad_pixel_mask,
                             calibrate_photometry,
                             check_phot,
                             check_wcs,
-                            dq_results,
+                            evaluate_data_quality_results,
                             filter_sets,
                             get_vizier_catalog,
                             get_frame_center,
@@ -192,8 +192,8 @@ class Photometry(object):
                 dpi=self.plot_file_resolution,
                 cmap=self.color_map)
             self.log.info(f"SExtractor detections (flag=0) plot saved to: {output_filename}")
-        self.dq = dq_results(dq_obj=self.data_quality_sources)
-        # fwhm, fwhm_error, ellipticity, ellipticity_error = dq_results(dq_obj=self.data_quality_sources)
+        self.dq = evaluate_data_quality_results(source_catalog=self.data_quality_sources)
+        # fwhm, fwhm_error, ellipticity, ellipticity_error = evaluate_data_quality_results(source_catalog=self.data_quality_sources)
         # self._data_quality["fwhm"] = fwhm
         # self._data_quality["fwhm_error"] = fwhm_error
         # self._data_quality["ellipticity"] = ellipticity
