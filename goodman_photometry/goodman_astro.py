@@ -128,19 +128,22 @@ def check_wcs(header: Header) -> WCS:
     return wcs
 
 
-# (F Navarete)
-def check_phot(m):
+def check_photometry_results(results: dict) -> dict:
+    """Check whether photometric calibration results are available.
+
+    Args:
+        results (dict): Output dictionary from `calibrate_photometry()`.
+
+    Returns:
+        dict: The same results dictionary if not None.
+
+    Raises:
+        ValueError: If `results` is None, indicating photometric calibration failed.
     """
-      Simple function to check whether a dictionary is None or not.
+    if results is None:
+        raise ValueError("Photometric calibration results are missing or invalid.")
 
-        m (dict): output from calibrate_photometry()
-
-      returns:
-        if 'm' is None, halts the code.
-
-    """
-    if m is None:
-        sys.exit("Impossible to retrieve photometric results.")
+    return results
 
 
 # (F Navarete)

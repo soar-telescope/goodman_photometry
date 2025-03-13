@@ -30,7 +30,8 @@ from ..goodman_astro import (
     table_get_column,
     get_observation_time,
     format_astromatic_opts,
-    check_wcs)
+    check_wcs,
+    check_photometry_results)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -926,6 +927,22 @@ class TestCheckWCS(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             check_wcs(header)
         self.assertIn("WCS is absent or non-celestial", str(context.exception))
+
+
+class TestCheckPhotometryResults(unittest.TestCase):
+
+    def test_valid_photometry_results(self):
+        """Should return the dictionary if not None."""
+        mock_results = {'zero_point': 25.1, 'extinction': 0.15}
+        result = check_photometry_results(mock_results)
+        self.assertEqual(result, mock_results)
+
+    def test_none_photometry_results(self):
+        """Should raise ValueError if results are None."""
+        with self.assertRaises(ValueError) as context:
+            check_photometry_results(None)
+
+        self.assertIn("Photometric calibration results are missing", str(context.exception))
 
 
 if __name__ == "__main__":

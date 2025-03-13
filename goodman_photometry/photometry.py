@@ -10,7 +10,7 @@ from astropy.wcs import FITSFixedWarning
 
 from .goodman_astro import (create_bad_pixel_mask,
                             calibrate_photometry,
-                            check_phot,
+                            check_photometry_results,
                             check_wcs,
                             evaluate_data_quality_results,
                             filter_sets,
@@ -248,7 +248,7 @@ class Photometry(object):
             order=0,
             verbose=True)
 
-        check_phot(magnitudes)
+        check_photometry_results(magnitudes)
 
         self.sources['mag_calib'] = self.sources['mag'] + magnitudes['zero_fn'](self.sources['x'], self.sources['y'])
         self.sources['mag_calib_err'] = np.hypot(self.sources['magerr'], magnitudes['zero_fn'](self.sources['x'], self.sources['y'], get_err=True))
