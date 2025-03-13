@@ -32,7 +32,8 @@ from ..goodman_astro import (
     format_astromatic_opts,
     check_wcs,
     check_photometry_results,
-    get_filter_set)
+    get_filter_set,
+    plot_image)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -977,6 +978,53 @@ class TestGetFilterSet(unittest.TestCase):
         catalog_filter, photometry_filter = get_filter_set("Ha-NB")
         self.assertEqual(catalog_filter, "Gmag")
         self.assertEqual(photometry_filter, "g_SDSS")
+
+
+class TestPlotImage(unittest.TestCase):
+    def setUp(self):
+        # Create a simple synthetic image and WCS
+        self.image = np.random.random((100, 100))
+        self.wcs = WCS(naxis=2)
+        self.wcs.wcs.crpix = [50, 50]
+        self.wcs.wcs.cdelt = np.array([-0.000277, 0.000277])
+        self.wcs.wcs.crval = [180, 0]
+        self.wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+
+    def test_plot_with_wcs(self):
+        """Test image plot with WCS projection and saving to file."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            output_path = tmpfile.name
+
+        plot_image(self.image, wcs=self.wcs, title="Test WCS Plot", output_file=output_path)
+        self.assertTrue(os.path.exists(output_path))
+        os.remove(output_path)
+
+    def test_plot_without_wcs(self):
+        """Test image plot without WCS and saving to file."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            output_path = tmpfile.name
+
+        plot_image(self.image, wcs=None, title="Test No WCS", output_file=output_path)
+        self.assertTrue(os.path.exists(output_path))
+        os.remove(output_path)
+
+    def test_plot_with_points(self):
+        """Test plot with overlay points."""
+        x_points = [10, 20, 30]
+        y_points = [40, 50, 60]
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            output_path = tmpfile.name
+
+        plot_image(self.image, x_points=x_points, y_points=y_points, output_file=output_path)
+        self.assertTrue(os.path.exists(output_path))
+        os.remove(output_path)
+
+    def test_invalid_quantiles(self):
+        """Test plot with invalid quantiles raises ValueError."""
+        with self.assertRaises(ValueError):
+            plot_image(self.image, quantiles=(-0.1, 1.1))
+
 
 if __name__ == "__main__":
     unittest.main()

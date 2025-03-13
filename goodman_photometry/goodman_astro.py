@@ -1030,7 +1030,7 @@ def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
     # Compute quantiles for color scaling
     brightness_limits = np.nanquantile(image, quantiles)
     brightness_limits[0] = max(brightness_limits[0], 0)  # Ensure vmin is non-negative
-    norm = simple_norm(image, 'linear', min_cut=brightness_limits[0], max_cut=brightness_limits[1])
+    norm = simple_norm(image, 'linear', vmin=brightness_limits[0], vmax=brightness_limits[1])
 
     # Plot the image
     img = ax.imshow(image, origin='lower', norm=norm, cmap=cmap)
