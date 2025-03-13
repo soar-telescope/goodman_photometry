@@ -10,7 +10,9 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
+from astropy.visualization import simple_norm
 from astropy.wcs import WCS
+from matplotlib import pyplot as plt
 
 from ..goodman_astro import (
     calculate_saturation_threshold,
@@ -33,7 +35,7 @@ from ..goodman_astro import (
     check_wcs,
     check_photometry_results,
     get_filter_set,
-    plot_image)
+    plot_image, add_colorbar)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1024,6 +1026,24 @@ class TestPlotImage(unittest.TestCase):
         """Test plot with invalid quantiles raises ValueError."""
         with self.assertRaises(ValueError):
             plot_image(self.image, quantiles=(-0.1, 1.1))
+
+
+class TestAddColorbar(unittest.TestCase):
+    def test_add_colorbar_to_image(self):
+        """Test that a colorbar is correctly added to a plot."""
+        image = np.random.normal(loc=100, scale=10, size=(100, 100))
+
+        fig, ax = plt.subplots()
+        norm = simple_norm(image, 'linear', vmin=np.percentile(image, 1), vmax=np.percentile(image, 99))
+        img = ax.imshow(image, origin='lower', cmap='viridis', norm=norm)
+
+        # Call the function under test
+        colorbar_obj = add_colorbar(mappable=img, ax=ax)
+
+        self.assertIsNotNone(colorbar_obj)
+        self.assertEqual(colorbar_obj.mappable, img)
+
+        plt.close(fig)
 
 
 if __name__ == "__main__":

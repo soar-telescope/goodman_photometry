@@ -1064,25 +1064,39 @@ def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
         plt.show()
 
 
-# plots (STDPipe)
-def colorbar(obj=None, ax=None, size="5%", pad=0.1):
-    # should_restore = False
+def add_colorbar(mappable=None, ax=None, size="5%", pad=0.1):
+    """
+    Add a colorbar to a matplotlib Axes object.
 
-    if obj is not None:
-        ax = obj.axes
+    This function appends a colorbar to the side of the given Axes using a
+    custom size and padding. If no Axes is provided, the current active Axes
+    is used.
+
+    Args:
+        mappable (matplotlib.cm.ScalarMappable, optional): The object to which the colorbar corresponds (e.g., from `imshow()`).
+        ax (matplotlib.axes.Axes, optional): The Axes to which the colorbar should be added. If None, uses current Axes.
+        size (str, optional): Width of the colorbar as a percentage of the original axes. Default is "5%".
+        pad (float, optional): Padding between the colorbar and the plot in inches. Default is 0.1.
+
+    Returns:
+        matplotlib.colorbar.Colorbar: The created colorbar instance.
+    """
+    if mappable is not None:
+        ax = mappable.axes
     elif ax is None:
         ax = plt.gca()
-        # should_restore = True
 
-    # create an axes on the right side of ax. The width of cax will be 5%
-    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+    # Create an axes for the colorbar next to the main Axes
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size=size, pad=pad)
 
-    ax.get_figure().colorbar(obj, cax=cax)
+    # Add colorbar and return it
+    colorbar_obj = ax.get_figure().colorbar(mappable, cax=cax)
 
-    # if should_restore:
+    # Restore focus to the original Axes
     ax.get_figure().sca(ax)
+
+    return colorbar_obj
 
 
 # plots (STDPipe)
@@ -1143,7 +1157,7 @@ def binned_map(
         **kwargs,
     )
     if show_colorbar:
-        colorbar(im, ax=ax)
+        add_colorbar(im, ax=ax)
 
     if not show_axis:
         ax.set_axis_off()
