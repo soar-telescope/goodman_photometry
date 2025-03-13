@@ -1,3 +1,4 @@
+import shlex
 import tempfile
 import unittest
 import os
@@ -27,7 +28,8 @@ from ..goodman_astro import (
     evaluate_data_quality_results,
     file_write,
     table_get_column,
-    get_observation_time)
+    get_observation_time,
+    format_astromatic_opts)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -835,6 +837,52 @@ class TestGetObservationTime(unittest.TestCase):
         result = get_observation_time()
         self.assertIsNone(result)
 
+
+class TestFormatAstromaticOpts(unittest.TestCase):
+
+    def test_boolean_values(self):
+        options = {'CHECKIMAGE_TYPE': True, 'VERBOSE_TYPE': False}
+        result = format_astromatic_opts(options)
+        self.assertIn('-CHECKIMAGE_TYPE Y', result)
+        self.assertIn('-VERBOSE_TYPE N', result)
+
+    def test_string_quoting(self):
+        options = {'CATALOG_NAME': 'my catalog.cat'}
+        result = format_astromatic_opts(options)
+        expected = f"-CATALOG_NAME {shlex.quote('my catalog.cat')}"
+        self.assertIn(expected, result)
+
+    def test_numeric_value(self):
+        options = {'DETECT_MINAREA': 5}
+        result = format_astromatic_opts(options)
+        self.assertIn('-DETECT_MINAREA 5', result)
+
+    def test_array_value(self):
+        options = {'FILTER_NAME': ['gauss_2.0_3x3.conv', 'gauss_3.0_5x5.conv']}
+        result = format_astromatic_opts(options)
+        expected = '-FILTER_NAME gauss_2.0_3x3.conv,gauss_3.0_5x5.conv'
+        self.assertIn(expected, result)
+
+    def test_none_is_skipped(self):
+        options = {'CHECKIMAGE_NAME': None, 'DETECT_THRESH': 2.5}
+        result = format_astromatic_opts(options)
+        self.assertIn('-DETECT_THRESH 2.5', result)
+        self.assertNotIn('CHECKIMAGE_NAME', result)
+
+    def test_mixed_arguments(self):
+        options = {
+            'CATALOG_NAME': 'output.cat',
+            'CHECKIMAGE_TYPE': True,
+            'DETECT_THRESH': 1.5,
+            'FILTER_NAME': ['gauss.conv', 'custom.conv'],
+            'SKY_TYPE': None
+        }
+        result = format_astromatic_opts(options)
+        self.assertIn('-CATALOG_NAME', result)
+        self.assertIn('-CHECKIMAGE_TYPE Y', result)
+        self.assertIn('-DETECT_THRESH 1.5', result)
+        self.assertIn('-FILTER_NAME gauss.conv,custom.conv', result)
+        self.assertNotIn('-SKY_TYPE', result)
 
 if __name__ == "__main__":
     unittest.main()

@@ -968,32 +968,36 @@ def get_observation_time(
     return None
 
 
-# Utils (STDPipe)
-def format_astromatic_opts(opts):
-    """
-      Auxiliary function to format dictionary of options into Astromatic compatible command-line string.
-      Booleans are converted to Y/N, arrays to comma separated lists, strings are quoted when necessary
-    """
-    result = []
+def format_astromatic_opts(options: dict) -> str:
+    """Format a dictionary of options into an Astromatic-compatible command-line string.
 
-    for key in opts.keys():
-        if opts[key] is None:
-            pass
-        elif type(opts[key]) is bool:
-            result.append('-%s %s' % (key, 'Y' if opts[key] else 'N'))
+    Booleans are converted to Y/N, arrays to comma-separated strings, and strings are quoted when necessary.
+
+    Args:
+        options (dict): Dictionary of options to be converted into command-line arguments.
+
+    Returns:
+        str: A formatted string with options suitable for Astromatic tools (e.g., SExtractor, SWarp).
+    """
+    formatted_args = []
+
+    for key, value in options.items():
+        if value is None:
+            continue
+
+        if isinstance(value, bool):
+            formatted_args.append(f"-{key} {'Y' if value else 'N'}")
         else:
-            value = opts[key]
+            if isinstance(value, str):
+                value_str = shlex.quote(value)
+            elif hasattr(value, '__len__') and not isinstance(value, str):
+                value_str = ','.join(str(item) for item in value)
+            else:
+                value_str = str(value)
 
-            if type(value) is str:
-                value = shlex.quote(value)
-            elif hasattr(value, '__len__'):
-                value = ','.join([str(_) for _ in value])
+            formatted_args.append(f"-{key} {value_str}")
 
-            result.append('-%s %s' % (key, value))
-
-    result = ' '.join(result)
-
-    return result
+    return ' '.join(formatted_args)
 
 
 def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
