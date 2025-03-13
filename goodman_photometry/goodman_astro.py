@@ -28,6 +28,65 @@ from scipy.stats import chi2
 log = logging.getLogger()
 
 
+CATALOGS = {
+    'ps1': {
+        'vizier': 'II/349/ps1',
+        'name': 'PanSTARRS DR1'
+    },
+    'gaiadr2': {
+        'vizier': 'I/345/gaia2',
+        'name': 'Gaia DR2',
+        'extra': ['E(BR/RP)']
+    },
+    'gaiaedr3': {
+        'vizier': 'I/350/gaiaedr3',
+        'name': 'Gaia EDR3'
+    },
+    'gaiadr3syn': {
+        'vizier': 'I/360/syntphot',
+        'name': 'Gaia DR3 synthetic photometry',
+        'extra': ['**', '_RAJ2000', '_DEJ2000']
+    },
+    'usnob1': {
+        'vizier': 'I/284/out',
+        'name': 'USNO-B1'
+    },
+    'gsc': {
+        'vizier': 'I/271/out',
+        'name': 'GSC 2.2'
+    },
+    'skymapper': {
+        'vizier': 'II/358/smss',
+        'name': 'SkyMapper DR1.1',
+        'extra': [
+            '_RAJ2000', '_DEJ2000', 'e_uPSF', 'e_vPSF',
+            'e_gPSF', 'e_rPSF', 'e_iPSF', 'e_zPSF'
+        ]
+    },
+    'vsx': {
+        'vizier': 'B/vsx/vsx',
+        'name': 'AAVSO VSX'
+    },
+    'apass': {
+        'vizier': 'II/336/apass9',
+        'name': 'APASS DR9'
+    },
+    'sdss': {
+        'vizier': 'V/147/sdss12',
+        'name': 'SDSS DR12',
+        'extra': ['_RAJ2000', '_DEJ2000']
+    },
+    'atlas': {
+        'vizier': 'J/ApJ/867/105/refcat2',
+        'name': 'ATLAS-REFCAT2',
+        'extra': [
+            '_RAJ2000', '_DEJ2000', 'e_Gmag', 'e_gmag',
+            'e_rmag', 'e_imag', 'e_zmag', 'e_Jmag', 'e_Kmag'
+        ]
+    }
+}
+
+
 def extract_observation_metadata(header):
     """
     Extracts observation metadata from a FITS header and ensures the wavelength mode is IMAGING.
@@ -1350,22 +1409,6 @@ def plot_photcal(
 
 
 # cat (STDPipe)
-catalogs = {
-    'ps1': {'vizier': 'II/349/ps1', 'name': 'PanSTARRS DR1'},
-    'gaiadr2': {'vizier': 'I/345/gaia2', 'name': 'Gaia DR2', 'extra': ['E(BR/RP)']},
-    'gaiaedr3': {'vizier': 'I/350/gaiaedr3', 'name': 'Gaia EDR3'},
-    'gaiadr3syn': {'vizier': 'I/360/syntphot', 'name': 'Gaia DR3 synthetic photometry', 'extra': ['**', '_RAJ2000', '_DEJ2000']},
-    'usnob1': {'vizier': 'I/284/out', 'name': 'USNO-B1'},
-    'gsc': {'vizier': 'I/271/out', 'name': 'GSC 2.2'},
-    'skymapper': {'vizier': 'II/358/smss', 'name': 'SkyMapper DR1.1', 'extra': ['_RAJ2000', '_DEJ2000', 'e_uPSF', 'e_vPSF', 'e_gPSF', 'e_rPSF', 'e_iPSF', 'e_zPSF']},
-    'vsx': {'vizier': 'B/vsx/vsx', 'name': 'AAVSO VSX'},
-    'apass': {'vizier': 'II/336/apass9', 'name': 'APASS DR9'},
-    'sdss': {'vizier': 'V/147/sdss12', 'name': 'SDSS DR12', 'extra': ['_RAJ2000', '_DEJ2000']},
-    'atlas': {'vizier': 'J/ApJ/867/105/refcat2', 'name': 'ATLAS-REFCAT2', 'extra': ['_RAJ2000', '_DEJ2000', 'e_Gmag', 'e_gmag', 'e_rmag', 'e_imag', 'e_zmag', 'e_Jmag', 'e_Kmag']}
-}
-
-
-# cat (STDPipe)
 def get_vizier_catalog(
     right_ascension,
     declination,
@@ -1413,13 +1456,13 @@ def get_vizier_catalog(
     """
     # TODO: Add positional error handling
 
-    if catalog in catalogs:
-        vizier_id = catalogs.get(catalog).get('vizier')
-        catalog_name = catalogs.get(catalog).get('name')
+    if catalog in CATALOGS:
+        vizier_id = CATALOGS.get(catalog).get('vizier')
+        catalog_name = CATALOGS.get(catalog).get('name')
         columns = (
-            ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000']
-            + extra_columns
-            + catalogs.get(catalog).get('extra', [])
+                ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000']
+                + extra_columns
+                + CATALOGS.get(catalog).get('extra', [])
         )
     else:
         vizier_id = catalog
