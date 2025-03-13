@@ -29,7 +29,8 @@ from ..goodman_astro import (
     file_write,
     table_get_column,
     get_observation_time,
-    format_astromatic_opts)
+    format_astromatic_opts,
+    check_wcs)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -883,6 +884,49 @@ class TestFormatAstromaticOpts(unittest.TestCase):
         self.assertIn('-DETECT_THRESH 1.5', result)
         self.assertIn('-FILTER_NAME gauss.conv,custom.conv', result)
         self.assertNotIn('-SKY_TYPE', result)
+
+
+class TestCheckWCS(unittest.TestCase):
+
+    def test_valid_wcs(self):
+        """Test that a valid celestial WCS is returned."""
+        header = fits.Header()
+        header["CTYPE1"] = "RA---TAN"
+        header["CTYPE2"] = "DEC--TAN"
+        header["CRPIX1"] = 100.0
+        header["CRPIX2"] = 100.0
+        header["CRVAL1"] = 180.0
+        header["CRVAL2"] = 45.0
+        header["CD1_1"] = -0.00027778
+        header["CD1_2"] = 0.0
+        header["CD2_1"] = 0.0
+        header["CD2_2"] = 0.00027778
+
+        result = check_wcs(header)
+        self.assertIsInstance(result, WCS)
+        self.assertTrue(result.is_celestial)
+
+    def test_missing_wcs(self):
+        """Test that a header with no WCS raises ValueError."""
+        header = fits.Header()
+        with self.assertRaises(ValueError) as context:
+            check_wcs(header)
+        self.assertIn("WCS is absent or non-celestial", str(context.exception))
+
+    def test_non_celestial_wcs(self):
+        """Test that a non-celestial WCS raises ValueError."""
+        header = fits.Header()
+        header["CTYPE1"] = "LINEAR"
+        header["CTYPE2"] = "LINEAR"
+        header["CRPIX1"] = 100.0
+        header["CRPIX2"] = 100.0
+        header["CRVAL1"] = 0.0
+        header["CRVAL2"] = 0.0
+
+        with self.assertRaises(ValueError) as context:
+            check_wcs(header)
+        self.assertIn("WCS is absent or non-celestial", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

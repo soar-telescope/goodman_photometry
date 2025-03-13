@@ -15,7 +15,7 @@ from astropy import units as u
 from astropy import wcs
 from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io import fits as fits
-from astropy.io.fits import table_to_hdu
+from astropy.io.fits import table_to_hdu, Header
 from astropy.table import Table
 from astropy.time import Time
 from astropy.visualization import simple_norm
@@ -108,20 +108,22 @@ def calculate_saturation_threshold(gain_value, read_noise_value):
     return saturation_threshold
 
 
-def check_wcs(header):
-    """
-      Simple function to check whether the header has a WCS solution or not.
+def check_wcs(header: Header) -> WCS:
+    """Check whether a FITS header contains a valid celestial WCS solution.
 
-        header (astropy.io.fits.Header): FITS header.
+    Args:
+        header (astropy.io.fits.Header): FITS header to check for WCS.
 
-      returns:
-        if no WCS is present, halts the code.
+    Returns:
+        astropy.wcs.WCS: Parsed WCS object from the header.
 
+    Raises:
+        ValueError: If WCS is absent or not celestial.
     """
     wcs = WCS(header)
 
     if wcs is None or not wcs.is_celestial:
-        sys.exit("WCS is absent or non-celestial. Impossible to compute photometry.")
+        raise ValueError("WCS is absent or non-celestial. Cannot perform photometry.")
 
     return wcs
 
