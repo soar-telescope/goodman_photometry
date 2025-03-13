@@ -35,7 +35,9 @@ from ..goodman_astro import (
     check_wcs,
     check_photometry_results,
     get_filter_set,
-    plot_image, add_colorbar)
+    plot_image,
+    add_colorbar,
+    binned_map)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1045,6 +1047,51 @@ class TestAddColorbar(unittest.TestCase):
 
         plt.close(fig)
 
+
+class TestBinnedMap(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(42)
+        self.x = np.random.uniform(0, 100, 500)
+        self.y = np.random.uniform(0, 100, 500)
+        self.values = np.random.normal(loc=10.0, scale=2.0, size=500)
+
+    def test_basic_plot(self):
+        """Test basic plotting without errors."""
+        fig, ax = plt.subplots()
+        try:
+            binned_map(self.x, self.y, self.values, ax=ax)
+        except Exception as e:
+            self.fail(f"binned_map raised an exception: {e}")
+
+    def test_hide_axes(self):
+        """Test binned map with axes hidden."""
+        fig, ax = plt.subplots()
+        binned_map(self.x, self.y, self.values, ax=ax, show_axes=False)
+        # We can't assert visibility directly, but we check it runs without error
+
+    def test_show_points_overlay(self):
+        """Test binned map with point overlay."""
+        fig, ax = plt.subplots()
+        try:
+            binned_map(self.x, self.y, self.values, ax=ax, show_points=True)
+        except Exception as e:
+            self.fail(f"Point overlay raised exception: {e}")
+
+    def test_custom_statistic(self):
+        """Test binned map with custom statistic."""
+        fig, ax = plt.subplots()
+        try:
+            binned_map(self.x, self.y, self.values, ax=ax, statistic='median')
+        except Exception as e:
+            self.fail(f"Custom statistic raised exception: {e}")
+
+    def test_outlier_quantile_handling(self):
+        """Test binned map with extreme quantiles."""
+        fig, ax = plt.subplots()
+        try:
+            binned_map(self.x, self.y, self.values, ax=ax, quantiles=(1, 99))
+        except Exception as e:
+            self.fail(f"Quantile edge case raised exception: {e}")
 
 if __name__ == "__main__":
     unittest.main()

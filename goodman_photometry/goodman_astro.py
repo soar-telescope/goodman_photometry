@@ -1099,74 +1099,80 @@ def add_colorbar(mappable=None, ax=None, size="5%", pad=0.1):
     return colorbar_obj
 
 
-# plots (STDPipe)
 def binned_map(
     x,
     y,
-    value,
+    values,
     bins=16,
     statistic='mean',
-    qq=[0.5, 97.5],
-    color=None,
+    quantiles=(0.5, 97.5),
+    point_color=None,
     show_colorbar=True,
-    show_axis=True,
-    show_dots=False,
+    show_axes=True,
+    show_points=False,
     ax=None,
-    range=None,
-    **kwargs,
+    data_range=None,
+    **imshow_kwargs,
 ):
-    """Plots various statistical estimators binned onto regular grid from the set of irregular data points (`x`, `y`, `value`).
-
-    :param x: Abscissae of the data points
-    :param y: Ordinates of the data points
-    :param value: Values of the data points
-    :param bins: Number of bins per axis
-    :param statistic: Statistical estimator to plot, may be `mean`, `median`, or a function
-    :param qq: two-element tuple (or list) with quantiles that define lower and upper limits for image intensity normalization. Default is `[0.5, 97.5]`. Will be superseded by manually provided `vmin` and `vmax` arguments.
-    :param color: Color to use for plotting the positions of data points, optional
-    :param show_colorbar: Whether to show a colorbar alongside the image
-    :param show_axis: Whether to show the axes around the image
-    :param show_dots: Whether to overlay the positions of data points onto the plot
-    :param range: Data range as [[xmin, xmax], [ymin, ymax]]
-    :param ax: Matplotlib Axes object to be used for plotting, optional
-    :param **kwargs: The rest of parameters will be directly passed to :func:`matplotlib.pyplot.imshow`
-    :returns: None
-
     """
-    gmag0, xe, ye, binnumbers = binned_statistic_2d(
-        x, y, value, bins=bins, statistic=statistic, range=range
+    Plot a binned 2D statistical map from irregular data using `binned_statistic_2d`.
+
+    Args:
+        x (array-like): X-coordinates of data points.
+        y (array-like): Y-coordinates of data points.
+        values (array-like): Data values at each (x, y) location.
+        bins (int or [int, int], optional): Number of bins per axis (default is 16).
+        statistic (str or callable, optional): Statistic to compute in each bin
+            (e.g., 'mean', 'median', or a function).
+        quantiles (tuple, optional): Percentiles for image normalization (default: (0.5, 97.5)).
+        point_color (str or None): Color for overplotted data points (if shown).
+        show_colorbar (bool): Whether to add a colorbar.
+        show_axes (bool): Whether to show axis ticks and labels.
+        show_points (bool): Whether to overlay the (x, y) points on the plot.
+        ax (matplotlib.axes.Axes, optional): Axes object to plot in. Defaults to current axes.
+        data_range (list or tuple, optional): [[xmin, xmax], [ymin, ymax]] data range for binning.
+        **imshow_kwargs: Additional keyword arguments passed to `imshow`.
+
+    Returns:
+        None
+    """
+    stat_image, x_edges, y_edges, _ = binned_statistic_2d(
+        x, y, values, statistic=statistic, bins=bins, range=data_range
     )
 
-    vmin1, vmax1 = np.percentile(gmag0[np.isfinite(gmag0)], qq)
-    if 'vmin' not in kwargs:
-        kwargs['vmin'] = vmin1
-    if 'vmax' not in kwargs:
-        kwargs['vmax'] = vmax1
+    # Handle percentile scaling
+    finite_values = stat_image[np.isfinite(stat_image)]
+    if len(finite_values) > 0:
+        vmin, vmax = np.percentile(finite_values, quantiles)
+    else:
+        vmin, vmax = None, None
+
+    if 'vmin' not in imshow_kwargs and vmin is not None:
+        imshow_kwargs['vmin'] = vmin
+    if 'vmax' not in imshow_kwargs and vmax is not None:
+        imshow_kwargs['vmax'] = vmax
 
     if ax is None:
         ax = plt.gca()
 
-    if 'aspect' not in kwargs:
-        kwargs['aspect'] = 'auto'
+    imshow_kwargs.setdefault('aspect', 'auto')
 
     im = ax.imshow(
-        gmag0.T,
+        stat_image.T,
         origin='lower',
-        extent=[xe[0], xe[-1], ye[0], ye[-1]],
+        extent=(x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]),
         interpolation='nearest',
-        **kwargs,
+        **imshow_kwargs
     )
+
     if show_colorbar:
         add_colorbar(im, ax=ax)
 
-    if not show_axis:
+    if not show_axes:
         ax.set_axis_off()
-    else:
-        ax.set_axis_on()
 
-    if show_dots:
-        ax.set_autoscale_on(False)
-        ax.plot(x, y, '.', color=color, alpha=0.3)
+    if show_points:
+        ax.plot(x, y, '.', color=point_color or 'red', alpha=0.3)
 
 
 # plots (STDPipe)
