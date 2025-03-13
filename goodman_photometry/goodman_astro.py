@@ -883,79 +883,88 @@ def table_get_column(table: Table, column_name: str, default=0):
     return np.full(len(table), default, dtype=int)
 
 
-# utils (STDPipe)
-def get_observation_time(header=None, filename=None, string=None, get_datetime=False, verbose=False):
+def get_observation_time(
+    header=None,
+    filename: str = None,
+    time_string: str = None,
+    return_datetime: bool = False,
+    verbose=False  # Unused
+):
+    """Extract observation time from a FITS header, FITS file, or a user-provided string.
+
+    Args:
+        header (astropy.io.fits.Header, optional): FITS header with time keywords.
+        filename (str, optional): Path to a FITS file (used if header is not provided).
+        time_string (str, optional): A user-provided ISO-formatted time string.
+        return_datetime (bool, optional): If True, return Python datetime object instead of Astropy Time.
+        verbose (bool, optional): Unused, for backward compatibility.
+
+    Returns:
+        astropy.time.Time or datetime.datetime or None: Parsed time object or None if parsing fails.
     """
-      Extract date and time of observations from FITS headers of common formats, or from a string.
 
-      Will try various FITS keywords that may contain the time information - `DATE_OBS`, `DATE`, `TIME_OBS`, `UT`, 'MJD', 'JD'.
-
-        :param header: FITS header containing the information on time of observations
-        :param filename: If `header` is not set, the FITS header will be loaded from the file with this name
-        :param string: If provided, the time will be parsed from the string instead of FITS header
-        :param get_datetime: Whether to return the time as a standard Python :class:`datetime.datetime` object instead of Astropy Time
-        :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
-        :returns: :class:`astropy.time.Time` object corresponding to the time of observations, or a :class:`datetime.datetime` object if :code:`get_datetime=True`
-
-    """
-
-    # Simple wrapper to display parsed value and convert it as necessary
-    def convert_time(time):
-        if isinstance(time, float):
-            # Try to parse floating-point value as MJD or JD, depending on the value
-            if time > 0 and time < 100000:
-                log.debug("Assuming it is MJD")
-                time = Time(time, format='mjd')
-            elif time > 2400000 and time < 2500000:
-                log.debug("Assuming it is JD")
-                time = Time(time, format='jd')
-            else:
-                # Then it is probably an Unix time?..
-                log.debug("Assuming it is Unix time")
-                time = Time(time, format='unix')
-
-        else:
-            time = Time(time)
-
-        log.info(f"Time parsed as: {time.iso}")
-        if get_datetime:
-            return time.datetime
-        else:
-            return time
-
-    if string:
-        log.info(f"Parsing user-provided time string: {string}")
+    def _convert_to_time(value):
+        """Convert float or string-like value to Time or datetime."""
         try:
-            return convert_time(dateutil.parser.parse(string))
-        except dateutil.parser.ParserError as err:
-            log.error(f"Could not parse user-provided string: {err}")
+            if isinstance(value, float):
+                if 0 < value < 100000:
+                    log.debug("Assuming float is MJD")
+                    time_obj = Time(value, format='mjd')
+                elif 2400000 < value < 2500000:
+                    log.debug("Assuming float is JD")
+                    time_obj = Time(value, format='jd')
+                else:
+                    log.debug("Assuming float is Unix timestamp")
+                    time_obj = Time(value, format='unix')
+            else:
+                time_obj = Time(value)
+            log.info(f"Time parsed as: {time_obj.iso}")
+            return time_obj.datetime if return_datetime else time_obj
+        except Exception as err:
+            log.error(f"Failed to convert time: {value} — {err}")
+            return None
+
+    if time_string:
+        log.info(f"Parsing time from time_string: {time_string}")
+        try:
+            parsed = dateutil.parser.parse(time_string)
+            return _convert_to_time(parsed)
+        except Exception as err:
+            log.error(f"Failed to parse time_string: {err}")
+            return None
+
+    if header is None and filename:
+        log.info(f"Loading FITS header from file: {filename}")
+        try:
+            header = fits.getheader(filename)
+        except Exception as err:
+            log.error(f"Failed to read header from file: {err}")
             return None
 
     if header is None:
-        log.info(f"Loading FITS header from {filename}")
-        header = fits.getheader(filename)
+        log.error("No header or filename provided for observation time extraction.")
+        return None
 
-    for dkey in ['DATE-OBS', 'DATE', 'TIME-OBS', 'UT', 'MJD', 'JD']:
-        if dkey in header:
-            log.debug(f"Found {dkey}: {header[dkey]}")
-            # First try to parse standard ISO time
-            try:
-                return convert_time(header[dkey])
-            except:
-                log.error(f"Could not parse {dkey} using Astropy parser")
+    # Combined DATE + TIME-OBS or UT
+    if 'DATE' in header and ('TIME-OBS' in header or 'UT' in header):
+        time_part = header.get('TIME-OBS', header.get('UT'))
+        try:
+            combined = f"{header['DATE']} {time_part}"
+            log.info(f"Trying combined DATE and TIME: {combined}")
+            parsed = dateutil.parser.parse(combined)
+            return _convert_to_time(parsed)
+        except Exception as err:
+            log.error(f"Failed to parse combined DATE and TIME-OBS/UT: {err}")
 
-            for tkey in ['TIME-OBS', 'UT']:
-                if tkey in header:
-                    log.info(f"Found {tkey}: {header[tkey]}")
-                    try:
-                        return convert_time(
-                            dateutil.parser.parse(header[dkey] + ' ' + header[tkey])
-                        )
-                    except dateutil.parser.ParserError as err:
-                        log.error(f"Could not parse {dkey} {tkey}: {err}")
+    # Fallback: try standard keys individually
+    for key in ['DATE-OBS', 'DATE', 'TIME-OBS', 'UT', 'MJD', 'JD']:
+        if key in header:
+            log.info(f"Found {key} in header: {header[key]}")
+            result = _convert_to_time(header[key])
+            if result is not None:
+                return result
 
-    log.error("Unsupported FITS header time format")
-
+    log.error("No valid observation time found in header.")
     return None
 
 

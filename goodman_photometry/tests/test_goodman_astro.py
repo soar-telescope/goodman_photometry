@@ -8,6 +8,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
+from astropy.time import Time
 from astropy.wcs import WCS
 
 from ..goodman_astro import (
@@ -25,7 +26,8 @@ from ..goodman_astro import (
     make_kernel,
     evaluate_data_quality_results,
     file_write,
-    table_get_column)
+    table_get_column,
+    get_observation_time)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -478,7 +480,7 @@ class TestSphericalMatch(unittest.TestCase):
         ra = np.array([10.0, 20.0, 30.0])
         dec = np.array([0.0, -10.0, +5.0])
 
-        idx1, idx2, dist = spherical_match(ra, dec, ra, dec, search_radius_deg=1/3600)
+        idx1, idx2, dist = spherical_match(ra, dec, ra, dec, search_radius_deg=1 / 3600)
 
         np.testing.assert_array_equal(idx1, np.array([0, 1, 2]))
         np.testing.assert_array_equal(idx2, np.array([0, 1, 2]))
@@ -759,6 +761,78 @@ class TestTableGetColumn(unittest.TestCase):
     def test_column_missing_none_default(self):
         """Return None if column is missing and default is None."""
         result = table_get_column(self.table, 'ellipticity', default=None)
+        self.assertIsNone(result)
+
+
+class TestGetObservationTime(unittest.TestCase):
+
+    def test_valid_time_string(self):
+        """Parse a valid time string."""
+        time = get_observation_time(time_string="2023-04-10T22:45:00")
+        self.assertIsInstance(time, Time)
+        self.assertEqual(time.iso, "2023-04-10 22:45:00.000")
+
+    def test_invalid_time_string(self):
+        """Return None for invalid time string."""
+        time = get_observation_time(time_string="invalid-time")
+        self.assertIsNone(time)
+
+    def test_date_obs_in_header(self):
+        """Parse DATE-OBS from FITS header."""
+        header = fits.Header()
+        header['DATE-OBS'] = '2023-04-10T22:45:00'
+        time = get_observation_time(header=header)
+        self.assertIsInstance(time, Time)
+        self.assertEqual(time.iso, "2023-04-10 22:45:00.000")
+
+    def test_combined_date_time_obs(self):
+        """Parse combined DATE and TIME-OBS."""
+        header = fits.Header()
+        header['DATE'] = '2023-04-10'
+        header['TIME-OBS'] = '22:45:00'
+        time = get_observation_time(header=header)
+        self.assertIsInstance(time, Time)
+        self.assertEqual(time.iso, "2023-04-10 22:45:00.000")
+
+    def test_mjd_from_header(self):
+        """Parse MJD float from header."""
+        header = fits.Header()
+        header['MJD'] = 60000.0
+        time = get_observation_time(header=header)
+        self.assertIsInstance(time, Time)
+        self.assertAlmostEqual(time.mjd, 60000.0, places=6)
+
+    def test_jd_from_header(self):
+        """Parse JD float from header."""
+        header = fits.Header()
+        header['JD'] = 2459360.5
+        time = get_observation_time(header=header)
+        self.assertIsInstance(time, Time)
+        self.assertAlmostEqual(time.jd, 2459360.5, places=6)
+
+    def test_unix_time_from_header(self):
+        """Parse Unix time from header."""
+        header = fits.Header()
+        header['DATE-OBS'] = 1609459200.0  # Jan 1, 2021 in Unix time
+        time = get_observation_time(header=header)
+        self.assertIsInstance(time, Time)
+        self.assertEqual(time.datetime.year, 2021)
+
+    @patch("astropy.io.fits.getheader")
+    def test_load_from_file(self, mock_getheader):
+        """Test loading header from a FITS file."""
+        header = fits.Header()
+        header['DATE-OBS'] = '2023-04-10T22:45:00'
+        mock_getheader.return_value = header
+
+        time = get_observation_time(filename="mockfile.fits")
+        self.assertIsInstance(time, Time)
+        self.assertEqual(time.iso, "2023-04-10 22:45:00.000")
+        mock_getheader.assert_called_once_with("mockfile.fits")
+
+    def test_no_header_or_filename(self):
+        """Return None if neither header nor filename is provided."""
+        result = get_observation_time()
         self.assertIsNone(result)
 
 
