@@ -31,7 +31,8 @@ from ..goodman_astro import (
     get_observation_time,
     format_astromatic_opts,
     check_wcs,
-    check_photometry_results)
+    check_photometry_results,
+    get_filter_set)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -944,6 +945,38 @@ class TestCheckPhotometryResults(unittest.TestCase):
 
         self.assertIn("Photometric calibration results are missing", str(context.exception))
 
+
+class TestGetFilterSet(unittest.TestCase):
+
+    def test_u_sdss(self):
+        catalog_filter, photometry_filter = get_filter_set("u-SDSS")
+        self.assertEqual(catalog_filter, "BPmag")
+        self.assertEqual(photometry_filter, "u_SDSS")
+
+    def test_g_sdss(self):
+        catalog_filter, photometry_filter = get_filter_set("g-SDSS")
+        self.assertEqual(catalog_filter, "BPmag")
+        self.assertEqual(photometry_filter, "g_SDSS")
+
+    def test_r_sdss(self):
+        catalog_filter, photometry_filter = get_filter_set("r-SDSS")
+        self.assertEqual(catalog_filter, "Gmag")
+        self.assertEqual(photometry_filter, "r_SDSS")
+
+    def test_i_sdss(self):
+        catalog_filter, photometry_filter = get_filter_set("i-SDSS")
+        self.assertEqual(catalog_filter, "Gmag")
+        self.assertEqual(photometry_filter, "i_SDSS")
+
+    def test_z_sdss(self):
+        catalog_filter, photometry_filter = get_filter_set("z-SDSS")
+        self.assertEqual(catalog_filter, "Gmag")
+        self.assertEqual(photometry_filter, "i_SDSS")
+
+    def test_unknown_filter(self):
+        catalog_filter, photometry_filter = get_filter_set("Ha-NB")
+        self.assertEqual(catalog_filter, "Gmag")
+        self.assertEqual(photometry_filter, "g_SDSS")
 
 if __name__ == "__main__":
     unittest.main()

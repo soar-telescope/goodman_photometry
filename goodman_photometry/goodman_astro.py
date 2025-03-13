@@ -146,58 +146,41 @@ def check_photometry_results(results: dict) -> dict:
     return results
 
 
-# (F Navarete)
-def filter_sets(filter_name):
+def get_filter_set(filter_name: str) -> tuple[str, str]:
+    """Determine the catalog filter and corresponding photometric filter for calibration,
+    based on the Goodman filter in use.
+
+    Args:
+        filter_name (str): Goodman filter name (from FITS header FILTER/FILTER2 keywords).
+
+    Returns:
+        tuple[str, str]: A tuple containing:
+            - catalog_filter (str): The catalog filter (e.g., Gaia Gmag, BPmag) to retrieve.
+            - photometry_filter (str): The photometric filter used for calibration (e.g., g_SDSS, r_SDSS).
+
+    Notes:
+        Currently supports only SDSS filters (u, g, r, i, z).
+        Future improvements:
+            - Add support for Bessel UBVRI, Johnson UBV, Stromgren ubvy, and Kron-Cousins Rc filters.
+            - Handle narrow-band filters separately.
     """
-      Simple function to define which set of filters will be used based on the Goodman filter in usage.
-
-        filter_name (str): Goodman filter name (from header's FILTER/FILTER2 keywords)
-
-      returns:
-        catalog_filter (str): Gaia filter to be retrieved
-        photometry_filter   (str): will convert the Gaia filter magnitude to the following filter
-
-      TODO: Right now, the function works for SDSS filters only.
-            Needs to add Bessel UBVRI, Johnson UBV, stromgren ubvy, Kron-Cousins Rc.
-            Narrow band filters should deliver results in the same filter.
-
-    """
-
-    # photometric filters for deriving the calibration (should be as close as possible as the filter in use.
-    # available filters from GaiaDR2 are:
-    # "Gmag,BPmag,RPmag (gaia system)
-    # Bmag,Vmag,Rmag,Imag,gmag,rmag,g_SDSS,r_SDSS,i_SDSS"
     if filter_name == "u-SDSS":
         catalog_filter = "BPmag"
         photometry_filter = "u_SDSS"
-        # phot_color_mag1 = "u_SDSS"
-        # phot_color_mag2 = "g_SDSS"
     elif filter_name == "g-SDSS":
         catalog_filter = "BPmag"
         photometry_filter = "g_SDSS"
-        # phot_color_mag1 = "g_SDSS"
-        # phot_color_mag2 = "r_SDSS"
     elif filter_name == "r-SDSS":
         catalog_filter = "Gmag"
         photometry_filter = "r_SDSS"
-        # phot_color_mag1 = "g_SDSS"
-        # phot_color_mag2 = "r_SDSS"
-    elif filter_name == "i-SDSS" or filter_name == "z-SDSS":
+    elif filter_name in ("i-SDSS", "z-SDSS"):
         catalog_filter = "Gmag"
         photometry_filter = "i_SDSS"
-        # phot_color_mag1 = "r_SDSS"
-        # phot_color_mag2 = "i_SDSS"
     else:
-        # for any other filter, use the GaiaDR2 G-band magnitudes
-        # TODO: add transformation for the z-SDSS filter
-        # TODO: add transformation for Bessel, stromgren
+        # Default fallback for unsupported filters
         catalog_filter = "Gmag"
         photometry_filter = "g_SDSS"
-        # phot_color_mag1 = "g_SDSS"
-        # phot_color_mag2 = "r_SDSS"
 
-    # no need for color term on the photometric calibration of a single filter exposure.
-    # return cat_filter, phot_mag, phot_color_mag1, phot_color_mag2
     return catalog_filter, photometry_filter
 
 

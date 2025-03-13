@@ -14,7 +14,7 @@ from .goodman_astro import (extract_observation_metadata,
                             check_wcs,
                             clear_wcs,
                             evaluate_data_quality_results,
-                            filter_sets,
+                            get_filter_set,
                             get_vizier_catalog,
                             get_frame_center,
                             get_objects_sextractor,
@@ -205,7 +205,7 @@ class Astrometry(object):
 
     def __obtain_astrometric_solution_with_scamp(self):
         self.log.info(f"Performing astrometry with SCAMP using {self.catalog_name}")
-        self.catalog_filter, _ = filter_sets(self.filter_name)
+        self.catalog_filter, _ = get_filter_set(self.filter_name)
 
         self.log.info(f"Querying Vizier for {self.catalog_name} catalog")
 

@@ -13,7 +13,7 @@ from .goodman_astro import (create_bad_pixel_mask,
                             check_photometry_results,
                             check_wcs,
                             evaluate_data_quality_results,
-                            filter_sets,
+                            get_filter_set,
                             get_vizier_catalog,
                             get_frame_center,
                             extract_observation_metadata,
@@ -209,7 +209,7 @@ class Photometry(object):
         return self.dq
 
     def do_photometry(self, data, header, wcs, center_ra, center_dec, fov_radius):
-        catalog_filter, photometry_filter = filter_sets(filter_name=self.filter_name)
+        catalog_filter, photometry_filter = get_filter_set(filter_name=self.filter_name)
         default_photometry_filter = 'Gmag'
         self.log.debug(f"Calibrating Goodman HST {self.filter_name} "
                        f"filter observations using {catalog_filter} magnitudes from {self.catalog_name} "
