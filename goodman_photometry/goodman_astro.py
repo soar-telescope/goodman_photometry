@@ -1175,120 +1175,109 @@ def binned_map(
         ax.plot(x, y, '.', color=point_color or 'red', alpha=0.3)
 
 
-# plots (STDPipe)
-def plot_photometric_match(m, ax=None, mode='mag', show_masked=True, show_final=True, cmag_limits=None, **kwargs):
-    """Convenience plotting routine for photometric match results.
-
-    It plots various representations of the photometric match results returned by :func:`stdpipe.photometry.match` or :func:`stdpipe.pipeline.calibrate_photometry`, depending on the `mode` parameter:
-
-    -  `mag` - displays photometric residuals as a function of catalogue magnitude
-    -  `normed` - displays normalized (i.e. divided by errors) photometric residuals as a function of catalogue magnitude
-    -  `color` - displays photometric residuals as a function of catalogue color
-    -  `zero` - displays the map of empirical zero point, i.e. difference of catalogue and instrumental magnitudes for all matched objects
-    -  `model` - displays the map of zero point model
-    -  `residuals` - displays fitting residuals between zero point and its model
-    -  `dist` - displays the map of angular separation between matched objects and stars, in arcseconds
-
-    The parameter `show_dots` controls whether to overlay the positions of the matched objects onto the maps, when applicable.
-
-    :param m: Dictionary with photometric match results
-    :param ax: Matplotlib Axes object to be used for plotting, optional
-    :param mode: plotting mode - one of `mag`, `color`, `zero`, `model`, `residuals`, or `dist`
-    :param show_masked: Whether to show masked objects
-    :param show_final: Whether to additionally highlight the objects used for the final fit, i.e. not rejected during iterative thresholding
-    :param **kwargs: the rest of parameters will be directly passed to :func:`stdpipe.plots.binned_map` when applicable.
-    :returns: None
-
+def plot_photometric_match(
+    match_result,
+    ax=None,
+    mode='mag',
+    show_masked=True,
+    show_final=True,
+    cmag_limits=None,
+    **kwargs
+):
     """
-    if ax is None:
-        ax = plt.gca()
+    Visualize photometric match results in various modes.
 
-    # Textual representation of the photometric model
-    model_str = 'Instr = %s' % m.get('cat_col_mag', 'Cat')
+    Parameters:
+        match_result (dict): Photometric match result dictionary.
+        ax (matplotlib.axes.Axes, optional): Axis to plot on. Defaults to current axis.
+        mode (str): Type of plot ('mag', 'normed', 'color', 'zero', 'model', 'residuals', 'dist').
+        show_masked (bool): Show masked data points.
+        show_final (bool): Highlight final selection.
+        cmag_limits (tuple, optional): X-axis range for magnitude plot.
+        **kwargs: Additional arguments for `binned_map`.
 
-    if ('cat_col_mag1' in m.keys() and 'cat_col_mag2' in m.keys() and 'color_term' in m.keys() and m['color_term'] is not None):
-        sign = '-' if m['color_term'] > 0 else '+'
-        model_str += ' %s %.2f (%s - %s)' % (sign, np.abs(m['color_term']), m['cat_col_mag1'], m['cat_col_mag2'])
+    Returns:
+        matplotlib.axes.Axes: Axis with the plot.
+    """
+    m = match_result
+    ax = ax or plt.gca()
 
-    model_str += ' + ZP'
+    def _model_string():
+        s = f"Instr = {m.get('cat_col_mag', 'Cat')}"
+        if all(k in m for k in ['cat_col_mag1', 'cat_col_mag2', 'color_term']) and m['color_term'] is not None:
+            sign = '-' if m['color_term'] > 0 else '+'
+            s += f" {sign} {abs(m['color_term']):.2f} ({m['cat_col_mag1']} - {m['cat_col_mag2']})"
+        return s + " + ZP"
 
-    if mode == 'mag':
-        ax.errorbar(m['cmag'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
+    def _plot_residual_vs(var, xlabel, ylabel, title=None):
+        ax.errorbar(m[var][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot(m['cmag'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+            ax.plot(m[var][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
         if show_final:
-            ax.plot(m['cmag'][m['idx']], (m['zero_model'] - m['zero'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
-
+            ax.plot(m[var][m['idx']], (m['zero_model'] - m['zero'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.legend()
         ax.grid(alpha=0.2)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        if title:
+            ax.set_title(title)
+        ax.text(0.02, 0.05, _model_string(), transform=ax.transAxes)
 
-        ax.set_xlabel('Catalogue %s magnitude' % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else ''))
-        ax.set_ylabel('Instrumental - Model')
-        ax.set_title('%d of %d unmasked stars used in final fit' % (np.sum(m['idx']), np.sum(m['idx0'])))
-        ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
-        # limit the plot to a limiting range for catalog magnitudes
-        if cmag_limits is not None:
-            x = m['cmag'][m['idx0']].value
-            y = (m['zero_model'] - m['zero'])[m['idx0']].value
-            idx = (x > cmag_limits[0]) * (x < cmag_limits[1])
-            ylim0 = (np.min(y[idx]), np.max(y[idx]))
-            dy = ylim0[1] - ylim0[0]
-            ylim = (ylim0[0] - 0.05 * dy, ylim0[1] + 0.05 * dy)
+    if mode == 'mag':
+        _plot_residual_vs('cmag', f"Catalogue {m.get('cat_col_mag', '')} magnitude", "Instrumental - Model",
+                          title=f"{np.sum(m['idx'])} of {np.sum(m['idx0'])} unmasked stars used in final fit")
+        if cmag_limits:
+            x = m['cmag'][m['idx0']].value if hasattr(m['cmag'], 'value') else m['cmag'][m['idx0']]
+            y = (m['zero_model'] - m['zero'])[m['idx0']].value if hasattr(m['zero_model'], 'value') else (m['zero_model'] - m['zero'])[m['idx0']]
+            idx = (x > cmag_limits[0]) & (x < cmag_limits[1])
+            ylim = (np.min(y[idx]), np.max(y[idx]))
+            dy = ylim[1] - ylim[0]
             ax.set_xlim(cmag_limits)
-            ax.set_ylim(ylim)
+            ax.set_ylim((ylim[0] - 0.05 * dy, ylim[1] + 0.05 * dy))
 
     elif mode == 'normed':
-        ax.plot(m['cmag'][m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx0']], '.', alpha=0.3, zorder=0)
+        ydata = ((m['zero_model'] - m['zero']) / m['zero_err'])
+        ax.plot(m['cmag'][m['idx0']], ydata[m['idx0']], '.', alpha=0.3, zorder=0)
         if show_masked:
-            ax.plot(m['cmag'][~m['idx0']], ((m['zero_model'] - m['zero']) / m['zero_err'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
+            ax.plot(m['cmag'][~m['idx0']], ydata[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
         if show_final:
-            ax.plot(m['cmag'][m['idx']], ((m['zero_model'] - m['zero']) / m['zero_err'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
-
+            ax.plot(m['cmag'][m['idx']], ydata[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
         ax.axhline(0, ls='--', color='black', alpha=0.3)
         ax.axhline(-3, ls=':', color='black', alpha=0.3)
         ax.axhline(3, ls=':', color='black', alpha=0.3)
         ax.legend()
         ax.grid(alpha=0.2)
-
-        ax.set_xlabel('Catalogue %s magnitude' % (m['cat_col_mag'] if 'cat_col_mag' in m.keys() else ''))
-        ax.set_ylabel('(Instrumental - Model) / Error')
-        ax.set_title('%d of %d unmasked stars used in final fit' % (np.sum(m['idx']), np.sum(m['idx0'])))
-        ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
+        ax.set_xlabel(f"Catalogue {m.get('cat_col_mag', '')} magnitude")
+        ax.set_ylabel("(Instrumental - Model) / Error")
+        ax.set_title(f"{np.sum(m['idx'])} of {np.sum(m['idx0'])} unmasked stars used in final fit")
+        ax.text(0.02, 0.05, _model_string(), transform=ax.transAxes)
 
     elif mode == 'color':
-        ax.errorbar(m['color'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], m['zero_err'][m['idx0']], fmt='.', alpha=0.3, zorder=0)
-        if show_masked:
-            ax.plot(m['color'][~m['idx0']], (m['zero_model'] - m['zero'])[~m['idx0']], 'x', alpha=0.3, color='orange', label='Masked', zorder=5)
-        if show_final:
-            ax.plot(m['color'][m['idx']], (m['zero_model'] - m['zero'])[m['idx']], '.', alpha=1.0, color='red', label='Final fit', zorder=10)
-
-        ax.axhline(0, ls='--', color='black', alpha=0.3)
-        ax.legend()
-        ax.grid(alpha=0.2)
-        ax.set_xlabel('Catalogue %s color' % (m['cat_col_mag1'] + '-' + m['cat_col_mag2'] if 'cat_col_mag1' in m.keys() else ''))
-        ax.set_ylabel('Instrumental - Model')
-        ax.set_title('color term = %.2f' % (m['color_term'] or 0.0))
-        ax.text(0.02, 0.05, model_str, transform=ax.transAxes)
+        _plot_residual_vs('color', f"Catalogue {m.get('cat_col_mag1', '')}-{m.get('cat_col_mag2', '')} color",
+                          "Instrumental - Model",
+                          title=f"color term = {m.get('color_term', 0.0):.2f}")
 
     elif mode == 'zero':
-        if show_final:
-            binned_map(m['ox'][m['idx']], m['oy'][m['idx']], m['zero'][m['idx']], ax=ax, **kwargs)
-        else:
-            binned_map(m['ox'][m['idx0']], m['oy'][m['idx0']], m['zero'][m['idx0']], ax=ax, **kwargs)
-        ax.set_title('Zero point')
+        binned_map(m['ox'][m['idx']] if show_final else m['ox'][m['idx0']],
+                   m['oy'][m['idx']] if show_final else m['oy'][m['idx0']],
+                   m['zero'][m['idx']] if show_final else m['zero'][m['idx0']],
+                   ax=ax, **kwargs)
+        ax.set_title("Zero point")
 
     elif mode == 'model':
-        binned_map(m['ox'][m['idx0']], m['oy'][m['idx0']], m['zero_model'][m['idx0']], ax=ax, **kwargs,)
-        ax.set_title('Model')
+        binned_map(m['ox'][m['idx0']], m['oy'][m['idx0']], m['zero_model'][m['idx0']], ax=ax, **kwargs)
+        ax.set_title("Model")
 
     elif mode == 'residuals':
         binned_map(m['ox'][m['idx0']], m['oy'][m['idx0']], (m['zero_model'] - m['zero'])[m['idx0']], ax=ax, **kwargs)
-        ax.set_title('Instrumental - model')
+        ax.set_title("Instrumental - model")
 
     elif mode == 'dist':
-        binned_map(m['ox'][m['idx']], m['oy'][m['idx']], m['dist'][m['idx']] * 3600, ax=ax, **kwargs)
-        ax.set_title('%d stars: mean displacement %.1f arcsec, median %.1f arcsec' % (np.sum(m['idx']), np.mean(m['dist'][m['idx']] * 3600), np.median(m['dist'][m['idx']] * 3600)))
+        arcsec_dist = m['dist'][m['idx']] * 3600
+        binned_map(m['ox'][m['idx']], m['oy'][m['idx']], arcsec_dist, ax=ax, **kwargs)
+        ax.set_title(f"{np.sum(m['idx'])} stars: mean displacement {np.mean(arcsec_dist):.1f}" +
+                     f" arcsec, median {np.median(arcsec_dist):.1f} arcsec")
 
     return ax
 

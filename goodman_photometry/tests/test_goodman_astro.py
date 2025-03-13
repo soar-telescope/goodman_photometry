@@ -37,7 +37,8 @@ from ..goodman_astro import (
     get_filter_set,
     plot_image,
     add_colorbar,
-    binned_map)
+    binned_map,
+    plot_photometric_match)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1092,6 +1093,80 @@ class TestBinnedMap(unittest.TestCase):
             binned_map(self.x, self.y, self.values, ax=ax, quantiles=(1, 99))
         except Exception as e:
             self.fail(f"Quantile edge case raised exception: {e}")
+
+
+class TestPlotPhotometricMatch(unittest.TestCase):
+
+    def setUp(self):
+        # Simulated data dictionary (m)
+        size = 100
+        self.m = {
+            'cmag': np.random.uniform(15, 20, size),
+            'zero_model': np.random.normal(0, 0.05, size),
+            'zero': np.random.normal(0, 0.05, size),
+            'zero_err': np.random.uniform(0.01, 0.1, size),
+            'idx': np.random.choice([True, False], size=size, p=[0.7, 0.3]),
+            'idx0': np.ones(size, dtype=bool),
+            'color': np.random.uniform(-0.5, 1.5, size),
+            'cat_col_mag': 'g',
+            'cat_col_mag1': 'g',
+            'cat_col_mag2': 'r',
+            'color_term': 0.2,
+            'ox': np.random.uniform(0, 1000, size),
+            'oy': np.random.uniform(0, 1000, size),
+            'dist': np.random.uniform(0, 0.001, size),
+        }
+
+    def test_plot_mag_mode(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='mag')
+        plt.close(fig)
+
+    def test_plot_normed_mode(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='normed')
+        plt.close(fig)
+
+    def test_plot_color_mode(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='color')
+        plt.close(fig)
+
+    def test_plot_zero_mode(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='zero')
+        plt.close(fig)
+
+    def test_plot_model_mode(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='model')
+        plt.close(fig)
+
+    def test_plot_residuals_mode(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='residuals')
+        plt.close(fig)
+
+    def test_plot_dist_mode(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='dist')
+        plt.close(fig)
+
+    def test_plot_with_custom_cmag_limits(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='mag', cmag_limits=(16, 19))
+        plt.close(fig)
+
+    def test_plot_without_final_fit(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='mag', show_final=False)
+        plt.close(fig)
+
+    def test_plot_without_masked_points(self):
+        fig, ax = plt.subplots()
+        plot_photometric_match(self.m, ax=ax, mode='mag', show_masked=False)
+        plt.close(fig)
+
 
 if __name__ == "__main__":
     unittest.main()
