@@ -1282,49 +1282,71 @@ def plot_photometric_match(
     return ax
 
 
-# plots (F Navarete)
-def plot_photcal(image, phot_table, wcs=wcs, column_scale='mag_calib', qq=(0.02, 0.98), output=None, dpi=300):
+def plot_photcal(
+    image,
+    phot_table,
+    wcs=None,
+    column_scale='mag_calib',
+    quantiles=(0.02, 0.98),
+    output_file=None,
+    show_plot=False,
+    dpi=300
+):
     """
-      Simple function to plot the image and overlay the SExtractor detections using the calibrated magnitudes as color scale.
+    Plot a calibrated photometric image with source ellipses colored by a photometric quantity.
 
-      image            (numpy.ndarray): image from fits file to be plotted
-      phot_table (astropy.table.Table): output from phot_table()
-      wcs            (astropy.wcs.WCS): WCS of the input image
-      column_scale               (str): column name from 'phot_table' to be used as the color scale of the plot
-      qq                  (float list): two-element list contaning the quantiles for ploting the image [default: (0.02,0.98)]
-      output                     (str): full path of the filename for saving the plot
-      dpi                        (int): dots-per-inches resolution of the plot [default: 300]
+    Args:
+        image (np.ndarray): 2D image array to display.
+        phot_table (astropy.table.Table): Table of photometric detections.
+        wcs (astropy.wcs.WCS, optional): WCS solution for the image.
+        column_scale (str): Column in `phot_table` to use for color mapping.
+        quantiles (tuple of float): Lower and upper quantiles for image display scaling.
+        output_file (str, optional): Path to save the plot. If None, plot is shown.
+        show_plot (bool, optional): Whether to show the plot. Defaults to False.
+        dpi (int): Resolution of the saved plot in dots per inch.
     """
-    # plots photometric calibrated sources over the image
     from matplotlib.patches import Ellipse
-    plt.figure()
-    ax = plt.subplot(projection=wcs)
 
-    # define percentiles for plotting the data
-    quant = np.nanquantile(image, qq)
-    if quant[0] < 0:
-        quant[0] = 0
+    fig, ax = plt.subplots(subplot_kw={'projection': wcs} if wcs else {}, figsize=(8, 6))
 
-    ax.imshow(image, cmap='gray', origin='lower', vmin=quant[0], vmax=quant[1])
+    # Scale image brightness using quantiles
+    vmin, vmax = np.nanquantile(image, quantiles)
+    vmin = max(0, vmin)
 
-    norm = plt.Normalize(phot_table[column_scale].min(), phot_table[column_scale].max())
+    ax.imshow(image, cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+
+    # Normalize color scale for ellipse overlay
+    norm = plt.Normalize(vmin=phot_table[column_scale].min(), vmax=phot_table[column_scale].max())
     cmap = plt.cm.viridis.reversed()
 
-    # add ellipses to the plot:
-    for row in phot_table:
-        e = Ellipse((row['x'], row['y']), width=2 * row['a'], height=2 * row['b'], angle=row['theta'],
-                    edgecolor=cmap(norm(row[column_scale])), facecolor='none', linewidth=0.5, alpha=0.55, transform=ax.get_transform('pixel'))
-        ax.add_patch(e)
+    # Overlay ellipses for each detected source
+    for source in phot_table:
+        ellipse = Ellipse(
+            xy=(source['x'], source['y']),
+            width=2 * source['a'],
+            height=2 * source['b'],
+            angle=source['theta'],
+            edgecolor=cmap(norm(source[column_scale])),
+            facecolor='none',
+            linewidth=0.5,
+            alpha=0.55,
+            transform=ax.transData
+        )
+        ax.add_patch(ellipse)
 
-    # add color bar
+    # Add colorbar
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])  # not required for Matplotlib >= 3.1
+    sm.set_array([])  # Required by older matplotlib versions
     cbar = plt.colorbar(sm, ax=ax)
     cbar.set_label(column_scale)
     cbar.ax.invert_yaxis()
+
     plt.tight_layout()
-    if output is not None:
-        plt.savefig(output, dpi=dpi)
+
+    if output_file:
+        plt.savefig(output_file, dpi=dpi)
+    if show_plot:
+        plt.show()
 
 
 # cat (STDPipe)

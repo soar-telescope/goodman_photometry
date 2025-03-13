@@ -38,7 +38,8 @@ from ..goodman_astro import (
     plot_image,
     add_colorbar,
     binned_map,
-    plot_photometric_match)
+    plot_photometric_match,
+    plot_photcal)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1166,6 +1167,65 @@ class TestPlotPhotometricMatch(unittest.TestCase):
         fig, ax = plt.subplots()
         plot_photometric_match(self.m, ax=ax, mode='mag', show_masked=False)
         plt.close(fig)
+
+
+class TestPlotPhotcal(unittest.TestCase):
+    def setUp(self):
+        self.image = np.random.normal(loc=1000, scale=50, size=(100, 100))
+        self.phot_table = Table({
+            'x': [20, 50, 80],
+            'y': [20, 50, 80],
+            'a': [3, 2.5, 4],
+            'b': [2, 2.0, 3],
+            'theta': [0, 30, 60],
+            'mag_calib': [18.5, 17.2, 19.1]
+        })
+
+        self.wcs = WCS(naxis=2)
+        self.wcs.wcs.crpix = [50, 50]
+        self.wcs.wcs.cdelt = np.array([-0.000277, 0.000277])
+        self.wcs.wcs.crval = [150, 2.0]
+        self.wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+
+    def test_plot_with_wcs(self):
+        # Should plot without errors
+        plot_photcal(
+            image=self.image,
+            phot_table=self.phot_table,
+            wcs=self.wcs,
+            column_scale='mag_calib',
+            quantiles=(0.01, 0.99)
+        )
+        plt.close('all')
+
+    def test_plot_without_wcs(self):
+        plot_photcal(
+            image=self.image,
+            phot_table=self.phot_table,
+            wcs=None,
+            column_scale='mag_calib'
+        )
+        plt.close('all')
+
+    def test_plot_saves_output(self):
+        import tempfile
+        import os
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            output_path = tmp.name
+        try:
+            plot_photcal(
+                image=self.image,
+                phot_table=self.phot_table,
+                wcs=self.wcs,
+                column_scale='mag_calib',
+                output_file=output_path,
+                dpi=150
+            )
+            self.assertTrue(os.path.exists(output_path))
+        finally:
+            if os.path.exists(output_path):
+                os.remove(output_path)
+        plt.close('all')
 
 
 if __name__ == "__main__":
