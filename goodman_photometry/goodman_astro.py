@@ -1938,25 +1938,32 @@ def clear_wcs(
     return header
 
 
-# photometry (STDPipe)
-def make_series(mul=1.0, x=1.0, y=1.0, order=1, sum=False, zero=True):
+def make_series(multiplier=1.0, x=1.0, y=1.0, order=1, sum=False, zero=True):
+    """
+    Generate a polynomial series up to the specified order using x and y.
+
+    Args:
+        multiplier (float): Scalar multiplier for each term (default is 1.0).
+        x (float or np.ndarray): x-values (can be scalar or array).
+        y (float or np.ndarray): y-values (can be scalar or array).
+        order (int): Maximum order of the polynomial terms.
+        sum (bool): If True, return the sum of all terms; otherwise, return the list of terms.
+        zero (bool): If True, include a constant term (zeroth order).
+
+    Returns:
+        list[np.ndarray] or np.ndarray: List of polynomial terms or their sum (if sum=True).
+    """
     x = np.atleast_1d(x)
     y = np.atleast_1d(y)
 
-    if zero:
-        res = [np.ones_like(x) * mul]
-    else:
-        res = []
+    terms = [np.ones_like(x) * multiplier] if zero else []
 
-    for i in range(1, order + 1):
-        maxr = i + 1
+    for total_order in range(1, order + 1):
+        for j in range(total_order + 1):
+            term = multiplier * (x ** (total_order - j)) * (y ** j)
+            terms.append(term)
 
-        for j in range(maxr):
-            res.append(mul * x ** (i - j) * y ** j)
-    if sum:
-        return np.sum(res, axis=0)
-    else:
-        return res
+    return np.sum(terms, axis=0) if sum else terms
 
 
 # photometry (STDPipe + F Navarete)

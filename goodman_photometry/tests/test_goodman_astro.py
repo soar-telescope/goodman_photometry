@@ -40,7 +40,8 @@ from ..goodman_astro import (
     binned_map,
     plot_photometric_match,
     plot_photcal,
-    clear_wcs)
+    clear_wcs,
+    make_series)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1273,6 +1274,49 @@ class TestClearWCS(unittest.TestCase):
     def test_remove_underscored_keys(self):
         cleared = clear_wcs(self.header, remove_underscored=True, copy=True)
         self.assertNotIn('_ASTROM', cleared)
+
+
+class TestMakeSeries:
+    def test_default_behavior(self):
+        x = 2.0
+        y = 3.0
+        order = 2
+        result = make_series(multiplier=1.0, x=x, y=y, order=order, sum=False, zero=True)
+        expected_terms = 1 + sum(i + 1 for i in range(1, order + 1))  # 1 constant + poly terms
+        assert len(result) == expected_terms
+        np.testing.assert_array_equal(result[0], np.ones_like(np.atleast_1d(x)))  # constant term
+
+    def test_zero_false(self):
+        x = 2.0
+        y = 3.0
+        order = 2
+        result = make_series(multiplier=1.0, x=x, y=y, order=order, sum=False, zero=False)
+        expected_terms = sum(i + 1 for i in range(1, order + 1))
+        assert len(result) == expected_terms
+        assert not np.all(result[0] == 1.0)
+
+    def test_sum_output(self):
+        x = np.array([1.0, 2.0])
+        y = np.array([2.0, 3.0])
+        result = make_series(multiplier=2.0, x=x, y=y, order=2, sum=True, zero=True)
+        assert isinstance(result, np.ndarray)
+        assert result.shape == x.shape
+
+    def test_order_zero(self):
+        x = np.array([1.0, 2.0])
+        y = np.array([2.0, 3.0])
+        result = make_series(multiplier=2.0, x=x, y=y, order=0, sum=False, zero=True)
+        assert len(result) == 1
+        np.testing.assert_array_equal(result[0], np.ones_like(x) * 2.0)
+
+    def test_custom_multiplier(self):
+        x = np.array([1.0, 2.0])
+        y = np.array([0.0, 1.0])
+        result = make_series(multiplier=3.0, x=x, y=y, order=1, sum=False, zero=True)
+        expected = [np.ones_like(x) * 3.0, 3.0 * x, 3.0 * y]
+        for r, e in zip(result, expected):
+            np.testing.assert_array_almost_equal(r, e)
+
 
 
 if __name__ == "__main__":
