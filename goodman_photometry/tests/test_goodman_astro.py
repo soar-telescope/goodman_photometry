@@ -23,6 +23,7 @@ from ..goodman_astro import (
     mask_field_of_view,
     table_to_ldac,
     get_pixel_scale,
+    get_photometric_zeropoint,
     spherical_distance,
     spherical_match,
     get_frame_center,
@@ -1362,6 +1363,50 @@ class TestConvertMatchResultsToTable(unittest.TestCase):
         selected_cols = ['oidx', 'cmag', 'zero']
         table = convert_match_results_to_table(self.match_result, columns=selected_cols)
         self.assertEqual(table.colnames, selected_cols)
+
+
+class TestGetPhotometricZeroPoint(unittest.TestCase):
+
+    def setUp(self):
+        # Define synthetic photometric match data
+        self.match_data = {
+            'zero': np.array([24.1, 24.2, 24.3, 24.4]),
+            'zero_err': np.array([0.05, 0.06, 0.04, 0.07]),
+            'zero_model': np.array([24.15, 24.25, 24.35, 24.45]),
+            'zero_model_err': np.array([0.06, 0.05, 0.06, 0.07])
+        }
+
+    def test_default_zero_point(self):
+        zp, zp_err = get_photometric_zeropoint(self.match_data)
+        self.assertAlmostEqual(zp, np.median(self.match_data['zero']))
+        self.assertAlmostEqual(zp_err, np.median(self.match_data['zero_err']))
+
+    def test_model_zero_point(self):
+        zp, zp_err = get_photometric_zeropoint(self.match_data, use_model=True)
+        self.assertAlmostEqual(zp, np.median(self.match_data['zero_model']))
+        self.assertAlmostEqual(zp_err, np.median(self.match_data['zero_model_err']))
+
+    def test_nan_handling(self):
+        # Add NaNs
+        self.match_data['zero'][1] = np.nan
+        self.match_data['zero_err'][2] = np.nan
+        zp, zp_err = get_photometric_zeropoint(self.match_data)
+        self.assertTrue(np.isfinite(zp))
+        self.assertTrue(np.isfinite(zp_err))
+
+    def test_missing_keys(self):
+        bad_data = {
+            'zero': np.array([24.1, 24.2]),
+            'zero_err': np.array([0.1, 0.2])
+        }
+        # Missing model fields: should still work with use_model=False
+        zp, zp_err = get_photometric_zeropoint(bad_data)
+        self.assertEqual(zp, np.median(bad_data['zero']))
+        self.assertEqual(zp_err, np.median(bad_data['zero_err']))
+
+        # If use_model=True but model fields missing, should raise KeyError
+        with self.assertRaises(KeyError):
+            get_photometric_zeropoint(bad_data, use_model=True)
 
 
 

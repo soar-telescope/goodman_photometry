@@ -2433,16 +2433,22 @@ def convert_match_results_to_table(match_results, pixscale=None, columns=None):
     return m_table
 
 
-# phot (F Navarete)
-def phot_zeropoint(m, model=False):
+def get_photometric_zeropoint(match_results, use_model=False):
     """
-      Reads the output from calibrate_photometry() and returns the photometric zero point.
-    """
-    # estimate the median photometric zero point of the image
-    med_zp = np.nanmedian(m['zero'])
-    med_ezp = np.nanmedian(m['zero_err'])
-    if model:
-        med_zp = np.nanmedian(m['zero_model'])
-        med_ezp = np.nanmedian(m['zero_model_err'])
+    Calculate the median photometric zero point from calibration results.
 
-    return med_zp, med_ezp
+    Args:
+        match_results (dict): Output from calibrate_photometry().
+        use_model (bool): If True, use modeled zero points instead of empirical ones.
+
+    Returns:
+        tuple: (median_zero_point, median_zero_point_error)
+    """
+    if use_model:
+        median_zero_point = np.nanmedian(match_results['zero_model'])
+        median_zero_point_error = np.nanmedian(match_results['zero_model_err'])
+    else:
+        median_zero_point = np.nanmedian(match_results['zero'])
+        median_zero_point_error = np.nanmedian(match_results['zero_err'])
+
+    return median_zero_point, median_zero_point_error

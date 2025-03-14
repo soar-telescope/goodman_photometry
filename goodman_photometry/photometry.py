@@ -19,10 +19,10 @@ from .goodman_astro import (create_bad_pixel_mask,
                             get_frame_center,
                             extract_observation_metadata,
                             get_objects_sextractor,
+                            get_photometric_zeropoint,
                             get_pixel_scale,
                             plot_photometric_match,
-                            plot_photcal,
-                            phot_zeropoint)
+                            plot_photcal)
 from .goodman_astro import plot_image
 from .utils import get_photometry_args, setup_logging
 
@@ -302,10 +302,10 @@ class Photometry(object):
             plt.savefig(self.filename.replace(".fits", "_phot_zp.png"))
 
         # get photometric zero point estimate
-        median_zeropoint, median_zeropoint_error = phot_zeropoint(m=magnitudes)
+        median_zeropoint, median_zeropoint_error = get_photometric_zeropoint(match_results=magnitudes)
         self.log.debug(f"Median empirical ZP: {median_zeropoint:.3f}+/-{median_zeropoint_error:.3f}")
 
-        median_zeropoint_default, median_zeropoint_error_default = phot_zeropoint(m=magnitudes_with_default_filter)
+        median_zeropoint_default, median_zeropoint_error_default = get_photometric_zeropoint(match_results=magnitudes_with_default_filter)
         self.log.debug(f"Median empirical ZP on {default_photometry_filter} "
                        f"filter: {median_zeropoint_default:.3f}+/-{median_zeropoint_error_default:.3f}")
 
