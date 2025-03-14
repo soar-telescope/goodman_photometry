@@ -41,7 +41,8 @@ from ..goodman_astro import (
     plot_photometric_match,
     plot_photcal,
     clear_wcs,
-    make_series)
+    make_series,
+    phot_table)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1316,6 +1317,51 @@ class TestMakeSeries:
         expected = [np.ones_like(x) * 3.0, 3.0 * x, 3.0 * y]
         for r, e in zip(result, expected):
             np.testing.assert_array_almost_equal(r, e)
+
+
+class TestPhotTable(unittest.TestCase):
+    def setUp(self):
+        self.match_result = {
+            'oidx': np.array([0, 1, 2]),
+            'cidx': np.array([0, 1, 2]),
+            'dist': np.array([0.1, 0.2, 0.3]),
+            'omag': np.array([20.1, 19.8, 20.5]),
+            'omagerr': np.array([0.05, 0.05, 0.07]),
+            'cmag': np.array([18.2, 18.5, 18.9]),
+            'cmagerr': np.array([0.03, 0.04, 0.03]),
+            'color': np.array([0.3, 0.5, 0.2]),
+            'ox': np.array([10, 20, 30]),
+            'oy': np.array([15, 25, 35]),
+            'oflags': np.array([0, 1, 0]),
+            'zero': np.array([1.8, 1.3, 1.6]),
+            'zero_err': np.array([0.1, 0.1, 0.1]),
+            'zero_model': np.array([1.9, 1.4, 1.7]),
+            'zero_model_err': np.array([0.1, 0.1, 0.1]),
+            'color_term': 0.05,
+            'obj_zero': np.array([1.8, 1.3, 1.6]),
+            'idx': np.array([True, True, False]),
+            'idx0': np.array([True, True, True]),
+            'fwhm': np.array([3.0, 2.8, 3.2]),
+            'a': np.array([2.5, 2.3, 2.6]),
+            'b': np.array([2.0, 2.1, 2.2]),
+        }
+
+    def test_basic_phot_table(self):
+        table = phot_table(self.match_result)
+        self.assertIsInstance(table, Table)
+        self.assertTrue('omag' in table.colnames)
+        self.assertEqual(len(table), 3)
+
+    def test_with_pixscale(self):
+        table = phot_table(self.match_result, pixscale=0.3)
+        self.assertIn('fwhm_arcsec', table.colnames)
+        self.assertIn('ell', table.colnames)
+        self.assertAlmostEqual(table['fwhm_arcsec'][0], self.match_result['fwhm'][0] * 0.3, places=5)
+
+    def test_select_columns(self):
+        selected_cols = ['oidx', 'cmag', 'zero']
+        table = phot_table(self.match_result, columns=selected_cols)
+        self.assertEqual(table.colnames, selected_cols)
 
 
 

@@ -2371,49 +2371,64 @@ def calibrate_photometry(
     return m
 
 
-# phot (F Navarete)
-def phot_table(m, pixscale=None, columns=None):
+def phot_table(match_results, pixscale=None, columns=None):
     """
-      Convert dict returned by calibrate_photometry() to an astropy Table.
-      Result table:
-        -  `oidx`, `cidx`, `dist` - indices of positionally matched objects and catalogue stars, as well as their pairwise distances in degrees
-        -  `omag`, `omagerr`, `cmag`, `cmagerr` - arrays of object instrumental magnitudes of matched objects, corresponding catalogue magnitudes, and their errors. Array lengths are equal to the number of positional matches.
-        -  `color` - catalogue colors corresponding to the matches, or zeros if no color term fitting is requested
-        -  `ox`, `oy`, `oflags` - coordinates of matched objects on the image, and their flags
-        -  `zero`, `zero_err` - empirical zero points (catalogue - instrumental magnitudes) for every matched object, as well as its errors, derived as a hypotenuse of their corresponding errors.
-        -  `zero_model`, `zero_model_err` - modeled "full" zero points (including color terms) for matched objects, and their corresponding errors from the fit
-        -  `color_term` - fitted color term. Instrumental photometric system is defined as :code:`obj_mag = cat_mag - color*color_termude of object, and optionally its error.
-        -  `obj_zero` - zero points for all input objects (not necessarily matched to the catalogue) computed through aforementioned function, i.e. without color term
-        -  `idx` - boolean index of matched objects/catalogue stars used in the final fit (i.e. not rejected during iterative thresholding, and passing initial quality cuts
-        -  `idx0` - the same but with just initial quality cuts taken into account`
+    Convert dict returned by calibrate_photometry() to an astropy Table.
+
+    Resulting table includes:
+        - `oidx`, `cidx`, `dist`: indices of positionally matched objects and catalogue stars, and pairwise distances in degrees.
+        - `omag`, `omagerr`, `cmag`, `cmagerr`: instrumental and catalogue magnitudes with errors.
+        - `color`: catalogue colors or zeros if no color term fitting is done.
+        - `ox`, `oy`, `oflags`: image coordinates and flags of matched objects.
+        - `zero`, `zero_err`: empirical zero points (cat - instr. magnitudes) and errors.
+        - `zero_model`, `zero_model_err`: modeled zero points and fit errors.
+        - `color_term`: fitted color term used in the calibration.
+        - `obj_zero`: zero points for all input objects (not necessarily matched).
+        - `idx`: boolean index for final fit objects.
+        - `idx0`: boolean index for initial quality cut objects.
+
+    Args:
+        match_results (dict): Dictionary output from calibrate_photometry().
+        pixscale (float, optional): Pixel scale in arcsec/pixel to add `fwhm_arcsec` and `ell` columns.
+        columns (list, optional): List of columns to retain in the resulting table.
+
+    Returns:
+        astropy.table.Table: Formatted table of photometric results.
     """
     from astropy.table import Table
 
     m_table = Table()
+    ref_len = None
 
-    for c, column in enumerate(m.keys()):
-        # avoid three specific columns with different formats
-        if (column != 'zero_fn') and (column != 'error_scale') and (column != 'intrinsic_rms'):
-            l = len(m[column]) if m[column] is not None else 0
-            if c == 0:
-                l0 = l
-            if l == l0:
-                m_table[column] = m[column]
-        # else:
-        #    print(column)
-        #    print(m[column])
-        #    print("")
+    for i, key in enumerate(match_results.keys()):
+        if key in ('zero_fn', 'error_scale', 'intrinsic_rms'):
+            continue
+
+        value = match_results[key]
+        if value is None:
+            continue
+
+        try:
+            is_vector = len(value) > 1 or (len(value) == 1 and not isinstance(value, (float, int)))
+        except TypeError:
+            is_vector = False
+
+        if is_vector:
+            if ref_len is None:
+                ref_len = len(value)
+            if len(value) == ref_len:
+                m_table[key] = value
 
     if columns is not None:
         m_table = m_table[columns]
 
     if pixscale is not None:
-        # convert FWHM from pixel to arcseconds
-        fwhm_index = m_table.colnames.index('fwhm')
-        m_table.add_column(m_table['fwhm'] * pixscale, name='fwhm_arcsec', index=fwhm_index + 1)
-        # evaluate ellipticity
-        b_index = m_table.colnames.index('b')
-        m_table.add_column(1 - m_table['b'] / m_table['a'], name='ell', index=b_index + 1)
+        if 'fwhm' in m_table.colnames:
+            fwhm_index = m_table.colnames.index('fwhm')
+            m_table.add_column(m_table['fwhm'] * pixscale, name='fwhm_arcsec', index=fwhm_index + 1)
+        if 'b' in m_table.colnames and 'a' in m_table.colnames:
+            b_index = m_table.colnames.index('b')
+            m_table.add_column(1 - m_table['b'] / m_table['a'], name='ell', index=b_index + 1)
 
     return m_table
 
