@@ -2371,7 +2371,7 @@ def calibrate_photometry(
     return m
 
 
-def phot_table(match_results, pixscale=None, columns=None):
+def convert_match_results_to_table(match_results, pixscale=None, columns=None):
     """
     Convert dict returned by calibrate_photometry() to an astropy Table.
 

@@ -42,7 +42,7 @@ from ..goodman_astro import (
     plot_photcal,
     clear_wcs,
     make_series,
-    phot_table)
+    convert_match_results_to_table)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1319,7 +1319,7 @@ class TestMakeSeries:
             np.testing.assert_array_almost_equal(r, e)
 
 
-class TestPhotTable(unittest.TestCase):
+class TestConvertMatchResultsToTable(unittest.TestCase):
     def setUp(self):
         self.match_result = {
             'oidx': np.array([0, 1, 2]),
@@ -1346,21 +1346,21 @@ class TestPhotTable(unittest.TestCase):
             'b': np.array([2.0, 2.1, 2.2]),
         }
 
-    def test_basic_phot_table(self):
-        table = phot_table(self.match_result)
+    def test_basic_convert_match_results_to_table(self):
+        table = convert_match_results_to_table(self.match_result)
         self.assertIsInstance(table, Table)
         self.assertTrue('omag' in table.colnames)
         self.assertEqual(len(table), 3)
 
     def test_with_pixscale(self):
-        table = phot_table(self.match_result, pixscale=0.3)
+        table = convert_match_results_to_table(self.match_result, pixscale=0.3)
         self.assertIn('fwhm_arcsec', table.colnames)
         self.assertIn('ell', table.colnames)
         self.assertAlmostEqual(table['fwhm_arcsec'][0], self.match_result['fwhm'][0] * 0.3, places=5)
 
     def test_select_columns(self):
         selected_cols = ['oidx', 'cmag', 'zero']
-        table = phot_table(self.match_result, columns=selected_cols)
+        table = convert_match_results_to_table(self.match_result, columns=selected_cols)
         self.assertEqual(table.colnames, selected_cols)
 
 

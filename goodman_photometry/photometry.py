@@ -12,6 +12,7 @@ from .goodman_astro import (create_bad_pixel_mask,
                             calibrate_photometry,
                             check_photometry_results,
                             check_wcs,
+                            convert_match_results_to_table,
                             evaluate_data_quality_results,
                             get_filter_set,
                             get_vizier_catalog,
@@ -21,7 +22,6 @@ from .goodman_astro import (create_bad_pixel_mask,
                             get_pixel_scale,
                             plot_photometric_match,
                             plot_photcal,
-                            phot_table,
                             phot_zeropoint)
 from .goodman_astro import plot_image
 from .utils import get_photometry_args, setup_logging
@@ -252,11 +252,11 @@ class Photometry(object):
 
         self.sources['mag_calib'] = self.sources['mag'] + magnitudes['zero_fn'](self.sources['x'], self.sources['y'])
         self.sources['mag_calib_err'] = np.hypot(self.sources['magerr'], magnitudes['zero_fn'](self.sources['x'], self.sources['y'], get_err=True))
-        sources_table = phot_table(self.sources,
-                                   pixscale=self.pixel_scale * 3600.,
-                                   columns=['x', 'y', 'xerr', 'yerr', 'flux', 'fluxerr', 'mag', 'magerr',
-                                            'a', 'b', 'theta', 'FLUX_RADIUS', 'fwhm', 'flags', 'bg',
-                                            'ra', 'dec', 'mag_calib', 'mag_calib_err'])
+        sources_table = convert_match_results_to_table(self.sources,
+                                                       pixscale=self.pixel_scale * 3600.,
+                                                       columns=['x', 'y', 'xerr', 'yerr', 'flux', 'fluxerr', 'mag', 'magerr',
+                                                                'a', 'b', 'theta', 'FLUX_RADIUS', 'fwhm', 'flags', 'bg',
+                                                                'ra', 'dec', 'mag_calib', 'mag_calib_err'])
 
         sources_table_html_filename = self.filename.replace(".fits", "_obj_table.html")
         sources_table.write(sources_table_html_filename, format='html', overwrite=True)
