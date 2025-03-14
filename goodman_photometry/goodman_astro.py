@@ -1879,98 +1879,60 @@ def refine_wcs_scamp(
     return wcs
 
 
-# astro (STDPipe)
-def clear_wcs(header,
-              remove_comments=False,
-              remove_history=False,
-              remove_underscored=False,
-              copy=False,):
-    """Clears WCS related keywords from FITS header
+def clear_wcs(
+    header,
+    remove_comments=False,
+    remove_history=False,
+    remove_underscored=False,
+    copy=False,
+):
+    """
+    Clears WCS-related keywords from a FITS header.
 
-    :param header: Header to operate on
-    :param remove_comments: Whether to also remove COMMENT keywords
-    :param remove_history: Whether to also remove HISTORY keywords
-    :param remove_underscored: Whether to also remove all keywords starting with underscore (often made by e.g. Astrometry.Net)
-    :param copy: If True, do not change original FITS header
-    :returns: Modified FITS header
+    Args:
+        header (astropy.io.fits.Header): Header to operate on.
+        remove_comments (bool): Remove COMMENT keywords if True.
+        remove_history (bool): Remove HISTORY keywords if True.
+        remove_underscored (bool): Remove keys starting with '_' (e.g., from Astrometry.Net).
+        copy (bool): If True, operate on a copy instead of modifying the original header.
 
+    Returns:
+        astropy.io.fits.Header: Modified FITS header.
     """
     if copy:
         header = header.copy()
 
     wcs_keywords = [
-        'WCSAXES',
-        'CRPIX1',
-        'CRPIX2',
-        'PC1_1',
-        'PC1_2',
-        'PC2_1',
-        'PC2_2',
-        'CDELT1',
-        'CDELT2',
-        'CUNIT1',
-        'CUNIT2',
-        'CTYPE1',
-        'CTYPE2',
-        'CRVAL1',
-        'CRVAL2',
-        'LONPOLE',
-        'LATPOLE',
-        'RADESYS',
-        'EQUINOX',
-        'B_ORDER',
-        'A_ORDER',
-        'BP_ORDER',
-        'AP_ORDER',
-        'CD1_1',
-        'CD2_1',
-        'CD1_2',
-        'CD2_2',
-        'IMAGEW',
-        'IMAGEH',
+        'WCSAXES', 'CRPIX1', 'CRPIX2', 'PC1_1', 'PC1_2', 'PC2_1', 'PC2_2',
+        'CDELT1', 'CDELT2', 'CUNIT1', 'CUNIT2', 'CTYPE1', 'CTYPE2',
+        'CRVAL1', 'CRVAL2', 'LONPOLE', 'LATPOLE', 'RADESYS', 'EQUINOX',
+        'B_ORDER', 'A_ORDER', 'BP_ORDER', 'AP_ORDER', 'CD1_1', 'CD2_1',
+        'CD1_2', 'CD2_2', 'IMAGEW', 'IMAGEH'
     ]
 
     scamp_keywords = [
-        'FGROUPNO',
-        'ASTIRMS1',
-        'ASTIRMS2',
-        'ASTRRMS1',
-        'ASTRRMS2',
-        'ASTINST',
-        'FLXSCALE',
-        'MAGZEROP',
-        'PHOTIRMS',
-        'PHOTINST',
-        'PHOTLINK',
+        'FGROUPNO', 'ASTIRMS1', 'ASTIRMS2', 'ASTRRMS1', 'ASTRRMS2',
+        'ASTINST', 'FLXSCALE', 'MAGZEROP', 'PHOTIRMS', 'PHOTINST', 'PHOTLINK'
     ]
 
-    remove = []
+    keys_to_remove = []
 
     for key in header.keys():
-        if key:
-            is_delete = False
+        if not key:
+            continue
 
-            if key in wcs_keywords:
-                is_delete = True
-            if key in scamp_keywords:
-                is_delete = True
-            if re.match(r'^(A|B|AP|BP)_\d+_\d+$', key):
-                # SIP
-                is_delete = True
-            if re.match(r'^PV_?\d+_\d+$', key):
-                # PV
-                is_delete = True
-            if key[0] == '_' and remove_underscored:
-                is_delete = True
-            if key == 'COMMENT' and remove_comments:
-                is_delete = True
-            if key == 'HISTORY' and remove_history:
-                is_delete = True
+        if (
+            key in wcs_keywords
+            or key in scamp_keywords
+            or re.match(r'^(A|B|AP|BP)_\d+_\d+$', key)
+            or re.match(r'^PV_?\d+_\d+$', key)
+            or (key.startswith('_') and remove_underscored)
+            or (key == 'COMMENT' and remove_comments)
+            or (key == 'HISTORY' and remove_history)
+        ):
+            keys_to_remove.append(key)
 
-            if is_delete:
-                remove.append(key)
-
-    for key in remove:
+    for key in keys_to_remove:
         header.remove(key, remove_all=True, ignore_missing=True)
 
     return header

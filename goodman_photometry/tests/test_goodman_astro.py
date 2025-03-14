@@ -39,7 +39,8 @@ from ..goodman_astro import (
     add_colorbar,
     binned_map,
     plot_photometric_match,
-    plot_photcal)
+    plot_photcal,
+    clear_wcs)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1226,6 +1227,52 @@ class TestPlotPhotcal(unittest.TestCase):
             if os.path.exists(output_path):
                 os.remove(output_path)
         plt.close('all')
+
+
+class TestClearWCS(unittest.TestCase):
+    def setUp(self):
+        self.header = fits.Header()
+        self.header['CRPIX1'] = 1024
+        self.header['CRPIX2'] = 1024
+        self.header['CTYPE1'] = 'RA---TAN'
+        self.header['CTYPE2'] = 'DEC--TAN'
+        self.header['CD1_1'] = 0.0001
+        self.header['CD1_2'] = 0.0
+        self.header['CD2_1'] = 0.0
+        self.header['CD2_2'] = 0.0001
+        self.header['COMMENT'] = "This is a comment"
+        self.header['HISTORY'] = "Some history"
+        self.header['_ASTROM'] = 'Astrometry.Net'
+        self.header['MAGZEROP'] = 25.0
+        self.header['A_1_1'] = 0.0
+        self.header['PV1_1'] = 0.0
+
+    def test_clear_basic_wcs_keywords(self):
+        cleared = clear_wcs(self.header, copy=True)
+        self.assertNotIn('CRPIX1', cleared)
+        self.assertNotIn('CRPIX2', cleared)
+        self.assertNotIn('CTYPE1', cleared)
+        self.assertNotIn('CTYPE2', cleared)
+
+    def test_clear_scamp_and_sip_keywords(self):
+        cleared = clear_wcs(self.header, copy=True)
+        self.assertNotIn('MAGZEROP', cleared)
+        self.assertNotIn('A_1_1', cleared)
+        self.assertNotIn('PV1_1', cleared)
+
+    def test_keep_comments_and_history_by_default(self):
+        cleared = clear_wcs(self.header, copy=True)
+        self.assertIn('COMMENT', cleared)
+        self.assertIn('HISTORY', cleared)
+
+    def test_remove_comments_and_history(self):
+        cleared = clear_wcs(self.header, remove_comments=True, remove_history=True, copy=True)
+        self.assertNotIn('COMMENT', cleared)
+        self.assertNotIn('HISTORY', cleared)
+
+    def test_remove_underscored_keys(self):
+        cleared = clear_wcs(self.header, remove_underscored=True, copy=True)
+        self.assertNotIn('_ASTROM', cleared)
 
 
 if __name__ == "__main__":
