@@ -2,6 +2,7 @@ import shlex
 import tempfile
 import unittest
 import os
+import warnings
 from unittest.mock import patch
 
 import astropy.units as u
@@ -43,7 +44,9 @@ from ..goodman_astro import (
     plot_photcal,
     clear_wcs,
     make_series,
-    convert_match_results_to_table)
+    convert_match_results_to_table,
+    match_photometric_objects,
+    wcs_sip2pv)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1408,6 +1411,109 @@ class TestGetPhotometricZeroPoint(unittest.TestCase):
         with self.assertRaises(KeyError):
             get_photometric_zeropoint(bad_data, use_model=True)
 
+
+class TestWcsSip2Pv(unittest.TestCase):
+    """
+    Test suite for the wcs_sip2pv function.
+    """
+
+    def test_header_with_pc_matrix(self):
+        """
+        Test the function with a header containing a PC matrix but no CD matrix.
+        """
+        # Create a header with PC matrix and CDELT values
+        header = fits.Header({
+            'PC1_1': 1.0,
+            'PC2_1': 0.0,
+            'PC1_2': 0.0,
+            'PC2_2': 1.0,
+            'CDELT1': 0.1,
+            'CDELT2': 0.1,
+            'A_ORDER': 2,
+            'B_ORDER': 2,
+            'A_0_2': 0.01,
+            'A_2_0': 0.01,
+            'B_0_2': 0.01,
+            'B_2_0': 0.01
+        })
+
+        # Call the function
+        result = wcs_sip2pv(header)
+
+        # Verify that the PC matrix is converted to CD matrix
+        self.assertIn('CD1_1', result)
+        self.assertIn('CD2_1', result)
+        self.assertIn('CD1_2', result)
+        self.assertIn('CD2_2', result)
+        self.assertNotIn('PC1_1', result)
+        self.assertNotIn('PC2_1', result)
+        self.assertNotIn('PC1_2', result)
+        self.assertNotIn('PC2_2', result)
+
+        # Verify the values of the CD matrix
+        self.assertAlmostEqual(result['CD1_1'], 0.1)
+        self.assertAlmostEqual(result['CD2_1'], 0.0)
+        self.assertAlmostEqual(result['CD1_2'], 0.0)
+        self.assertAlmostEqual(result['CD2_2'], 0.1)
+
+    def test_header_with_cd_matrix(self):
+        """
+        Test the function with a header already containing a CD matrix.
+        """
+        # Create a header with CD matrix
+        header = fits.Header({
+            'CD1_1': 0.1,
+            'CD2_1': 0.0,
+            'CD1_2': 0.0,
+            'CD2_2': 0.1,
+            'A_ORDER': 2,
+            'B_ORDER': 2,
+            'A_0_2': 0.01,
+            'A_2_0': 0.01,
+            'B_0_2': 0.01,
+            'B_2_0': 0.01
+        })
+
+        # Call the function
+        result = wcs_sip2pv(header)
+
+        # Verify that the CD matrix remains unchanged
+        self.assertIn('CD1_1', result)
+        self.assertIn('CD2_1', result)
+        self.assertIn('CD1_2', result)
+        self.assertIn('CD2_2', result)
+        self.assertAlmostEqual(result['CD1_1'], 0.1)
+        self.assertAlmostEqual(result['CD2_1'], 0.0)
+        self.assertAlmostEqual(result['CD1_2'], 0.0)
+        self.assertAlmostEqual(result['CD2_2'], 0.1)
+
+    def test_header_without_sip_keywords(self):
+        """
+        Test the function with a header missing SIP keywords.
+        """
+        # Create a header without SIP keywords
+        header = fits.Header({
+            'CD1_1': 0.1,
+            'CD2_1': 0.0,
+            'CD1_2': 0.0,
+            'CD2_2': 0.1
+        })
+
+        # Call the function and expect a warning
+        with warnings.catch_warnings(record=True) as w:
+            result = wcs_sip2pv(header)
+            self.assertEqual(len(w), 1)
+            self.assertIn("SIP keywords are missing", str(w[0].message))
+
+        # Verify that the CD matrix remains unchanged
+        self.assertIn('CD1_1', result)
+        self.assertIn('CD2_1', result)
+        self.assertIn('CD1_2', result)
+        self.assertIn('CD2_2', result)
+        self.assertAlmostEqual(result['CD1_1'], 0.1)
+        self.assertAlmostEqual(result['CD2_1'], 0.0)
+        self.assertAlmostEqual(result['CD1_2'], 0.0)
+        self.assertAlmostEqual(result['CD2_2'], 0.1)
 
 
 if __name__ == "__main__":

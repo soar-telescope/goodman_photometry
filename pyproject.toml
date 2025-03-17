@@ -59,7 +59,9 @@ dependencies = [
   "requests",
   "scipy",
   "statsmodels",
-  "astroquery"
+  "astroquery",
+  "sip_tpv",
+  "setuptools"
 
 ]
 

@@ -4,3 +4,4 @@ astropy
 astroscrappy
 statsmodels
 astroquery
+sip_tpv
