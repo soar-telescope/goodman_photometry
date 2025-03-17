@@ -11,8 +11,9 @@ import dateutil
 import matplotlib.pyplot as plt
 import numpy as np
 import statsmodels.api as sm
+import sip_tpv
+
 from astropy import units as u
-from astropy import wcs
 from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io import fits as fits
 from astropy.io.fits import table_to_hdu, Header
@@ -22,6 +23,7 @@ from astropy.visualization import simple_norm
 from astropy.wcs import WCS
 from astroquery.vizier import Vizier
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.optimize import minimize
 from scipy.stats import binned_statistic_2d
 from scipy.stats import chi2
 
@@ -185,6 +187,27 @@ def check_wcs(header: Header) -> WCS:
         raise ValueError("WCS is absent or non-celestial. Cannot perform photometry.")
 
     return wcs
+
+
+def wcs_sip2pv(header):
+    """
+    Convert the WCS header from SIP to TPV representation
+    """
+
+    header = header.copy()
+
+    # sip_to_pv expects CD matrix to be present
+    if 'CD1_1' not in header and 'PC1_1' in header:
+        cdelt = [header.get('CDELT1'), header.get('CDELT2')]
+
+        header['CD1_1'] = header.pop('PC1_1') * cdelt[0]
+        header['CD2_1'] = header.pop('PC2_1') * cdelt[0]
+        header['CD1_2'] = header.pop('PC1_2') * cdelt[0]
+        header['CD2_2'] = header.pop('PC2_2') * cdelt[0]
+
+    sip_tpv.sip_to_pv(header)
+
+    return header
 
 
 def check_photometry_results(results: dict) -> dict:
@@ -1966,7 +1989,25 @@ def make_series(multiplier=1.0, x=1.0, y=1.0, order=1, sum=False, zero=True):
     return np.sum(terms, axis=0) if sum else terms
 
 
-# photometry (STDPipe + F Navarete)
+def get_intrinsic_scatter(y, yerr, min=0, max=None):
+    def log_likelihood(theta, y, yerr):
+        a, b, c = theta
+        model = b
+        sigma2 = a * yerr ** 2 + c ** 2
+        return -0.5 * np.sum((y - model) ** 2 / sigma2 + np.log(sigma2))
+
+    nll = lambda *args: -log_likelihood(*args)
+    C = minimize(
+        nll,
+        [1, 0.0, 0.0],
+        args=(y, yerr),
+        bounds=[[1, 1], [None, None], [min, max]],
+        method='Powell',
+    )
+
+    return C.x[2]
+
+
 def match(
     obj_ra,
     obj_dec,
