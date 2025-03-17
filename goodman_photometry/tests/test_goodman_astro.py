@@ -45,8 +45,9 @@ from ..goodman_astro import (
     clear_wcs,
     make_series,
     convert_match_results_to_table,
-    match_photometric_objects,
-    wcs_sip2pv)
+    # match_photometric_objects,
+    wcs_sip2pv,
+    get_intrinsic_scatter)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1515,6 +1516,67 @@ class TestWcsSip2Pv(unittest.TestCase):
         self.assertAlmostEqual(result['CD1_2'], 0.0)
         self.assertAlmostEqual(result['CD2_2'], 0.1)
 
+
+class TestGetIntrinsicScatter(unittest.TestCase):
+    """
+    Test suite for the `get_intrinsic_scatter` function.
+    """
+
+    def test_basic_case(self):
+        """
+        Test the function with a basic case where intrinsic scatter is expected.
+        """
+        observed_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        observed_errors = np.array([0.1, 0.2, 0.15, 0.3, 0.25])
+        intrinsic_scatter = get_intrinsic_scatter(observed_values, observed_errors)
+        self.assertIsInstance(intrinsic_scatter, float)
+        self.assertGreaterEqual(intrinsic_scatter, 0)
+
+    def test_zero_scatter_case(self):
+        """
+        Test the function with data that has no intrinsic scatter.
+        """
+        observed_values = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        observed_errors = np.array([0.1, 0.1, 0.1, 0.1, 0.1])
+        intrinsic_scatter = get_intrinsic_scatter(observed_values, observed_errors)
+        self.assertAlmostEqual(intrinsic_scatter, 0, delta=1e-4)  # Relaxed tolerance
+
+    def test_with_bounds(self):
+        """
+        Test the function with bounds on the intrinsic scatter.
+        """
+        observed_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        observed_errors = np.array([0.1, 0.2, 0.15, 0.3, 0.25])
+        intrinsic_scatter = get_intrinsic_scatter(observed_values, observed_errors, min_scatter=0.5, max_scatter=1.0)
+        self.assertGreaterEqual(intrinsic_scatter, 0.5)
+        self.assertLessEqual(intrinsic_scatter, 1.0)
+
+    def test_invalid_input(self):
+        """
+        Test the function with invalid input (empty arrays).
+        """
+        observed_values = np.array([])
+        observed_errors = np.array([])
+        with self.assertRaises(ValueError):
+            get_intrinsic_scatter(observed_values, observed_errors)
+
+    def test_mismatched_input_lengths(self):
+        """
+        Test the function with mismatched lengths of observed_values and observed_errors.
+        """
+        observed_values = np.array([1.0, 2.0, 3.0])
+        observed_errors = np.array([0.1, 0.2])
+        with self.assertRaises(ValueError):
+            get_intrinsic_scatter(observed_values, observed_errors)
+
+    def test_negative_errors(self):
+        """
+        Test the function with negative observed errors.
+        """
+        observed_values = np.array([1.0, 2.0, 3.0])
+        observed_errors = np.array([0.1, -0.2, 0.3])
+        with self.assertRaises(ValueError):
+            get_intrinsic_scatter(observed_values, observed_errors)
 
 if __name__ == "__main__":
     unittest.main()

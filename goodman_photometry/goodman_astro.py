@@ -2000,23 +2000,64 @@ def make_series(multiplier=1.0, x=1.0, y=1.0, order=1, sum=False, zero=True):
     return np.sum(terms, axis=0) if sum else terms
 
 
-def get_intrinsic_scatter(y, yerr, min=0, max=None):
-    def log_likelihood(theta, y, yerr):
-        a, b, c = theta
-        model = b
-        sigma2 = a * yerr ** 2 + c ** 2
-        return -0.5 * np.sum((y - model) ** 2 / sigma2 + np.log(sigma2))
+def get_intrinsic_scatter(observed_values, observed_errors, min_scatter=0, max_scatter=None):
+    """
+    Calculate the intrinsic scatter of a dataset given observed values and their errors.
 
-    nll = lambda *args: -log_likelihood(*args)
-    C = minimize(
-        nll,
-        [1, 0.0, 0.0],
-        args=(y, yerr),
-        bounds=[[1, 1], [None, None], [min, max]],
-        method='Powell',
+    This function estimates the intrinsic scatter by fitting a model that accounts for both
+    observational errors and intrinsic scatter. The intrinsic scatter is constrained to be
+    between `min_scatter` and `max_scatter`.
+
+    Args:
+        observed_values (numpy.ndarray): Array of observed values.
+        observed_errors (numpy.ndarray): Array of errors corresponding to the observed values.
+        min_scatter (float, optional): Minimum allowed value for the intrinsic scatter. Defaults to 0.
+        max_scatter (float, optional): Maximum allowed value for the intrinsic scatter. Defaults to None.
+
+    Returns:
+        float: The estimated intrinsic scatter.
+    """
+    if len(observed_values) == 0 or len(observed_errors) == 0:
+        raise ValueError("Input arrays cannot be empty.")
+    if len(observed_values) != len(observed_errors):
+        raise ValueError("observed_values and observed_errors must have the same length.")
+    if np.any(observed_errors < 0):
+        raise ValueError("observed_errors cannot contain negative values.")
+
+    def log_likelihood(parameters, values, errors):
+        """
+        Compute the log-likelihood for the intrinsic scatter model.
+
+        Args:
+            parameters (tuple): A tuple containing the model parameters:
+                - scaling_factor (float): Scaling factor for the observed errors.
+                - model_offset (float): Offset of the model.
+                - intrinsic_scatter (float): Intrinsic scatter of the model.
+            values (numpy.ndarray): Array of observed values.
+            errors (numpy.ndarray): Array of errors corresponding to the observed values.
+
+        Returns:
+            float: The log-likelihood value.
+        """
+        scaling_factor, model_offset, intrinsic_scatter = parameters
+        model = model_offset
+        total_variance = scaling_factor * errors ** 2 + intrinsic_scatter ** 2
+        return -0.5 * np.sum((values - model) ** 2 / total_variance + np.log(total_variance))
+
+    # Define the negative log-likelihood function
+    negative_log_likelihood = lambda *args: -log_likelihood(*args)
+
+    # Perform optimization to find the best-fit parameters
+    optimization_result = minimize(
+        negative_log_likelihood,
+        [1, 0.0, 0.0],  # Initial guesses for scaling_factor, model_offset, and intrinsic_scatter
+        args=(observed_values, observed_errors),
+        bounds=[[1, 1], [None, None], [min_scatter, max_scatter]],  # Parameter bounds
+        method='Powell',  # Optimization method
     )
 
-    return C.x[2]
+    # Return the estimated intrinsic scatter
+    return optimization_result.x[2]
 
 
 def match(
@@ -2209,7 +2250,9 @@ def match(
 
         intrinsic_rms = (
             get_intrinsic_scatter(
-                (zero - zero_model)[idx], total_err[idx], max=max_intrinsic_rms
+                observed_values=(zero - zero_model)[idx],
+                observed_errors=total_err[idx],
+                max_scatter=max_intrinsic_rms
             )
             if max_intrinsic_rms > 0
             else 0
