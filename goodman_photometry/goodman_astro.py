@@ -717,13 +717,7 @@ def get_objects_sextractor(
     opts.update(extra)
 
     # Build the command line
-    cmd = (
-        binname
-        + ' '
-        + shlex.quote(imagename)
-        + ' '
-        + format_astromatic_opts(opts)
-    )
+    cmd = (binname + ' ' + shlex.quote(imagename) + ' ' + format_astromatic_opts(opts))
     if not verbose:
         cmd += ' > /dev/null 2>/dev/null'
     log.debug("Will run SExtractor like that:")
@@ -1483,9 +1477,9 @@ def get_vizier_catalog(
         vizier_id = CATALOGS.get(catalog).get('vizier')
         catalog_name = CATALOGS.get(catalog).get('name')
         columns = (
-                ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000']
-                + extra_columns
-                + CATALOGS.get(catalog).get('extra', [])
+            ['*', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000'] +
+            extra_columns +
+            CATALOGS.get(catalog).get('extra', [])
         )
     else:
         vizier_id = catalog
@@ -1817,8 +1811,7 @@ def refine_wcs_scamp(
                 if hasattr(cat_mag_lim, '__len__') and len(cat_mag_lim) == 2:
                     # Two elements provided, treat them as lower and upper limits
                     t_cat = t_cat[
-                        (t_cat['MAG'] >= cat_mag_lim[0])
-                        & (t_cat['MAG'] <= cat_mag_lim[1])
+                        (t_cat['MAG'] >= cat_mag_lim[0]) & (t_cat['MAG'] <= cat_mag_lim[1])
                     ]
                 else:
                     # One element provided, treat it as upper limit
@@ -1857,8 +1850,7 @@ def refine_wcs_scamp(
         log.info(f"{diag['NDeg_Reference']:d} matches, chi2 {diag['Chi2_Reference']:.1f}")
         # FIXME: is df correct here?..
         if (
-            diag['NDeg_Reference'] < 3
-            or chi2.sf(diag['Chi2_Reference'], df=diag['NDeg_Reference']) < 1e-3
+            diag['NDeg_Reference'] < 3 or chi2.sf(diag['Chi2_Reference'], df=diag['NDeg_Reference']) < 1e-3
         ):
             log.info("It seems the fitting failed")
         else:
@@ -1945,13 +1937,13 @@ def clear_wcs(
             continue
 
         if (
-            key in wcs_keywords
-            or key in scamp_keywords
-            or re.match(r'^(A|B|AP|BP)_\d+_\d+$', key)
-            or re.match(r'^PV_?\d+_\d+$', key)
-            or (key.startswith('_') and remove_underscored)
-            or (key == 'COMMENT' and remove_comments)
-            or (key == 'HISTORY' and remove_history)
+            key in wcs_keywords or
+                key in scamp_keywords or
+                re.match(r'^(A|B|AP|BP)_\d+_\d+$', key) or
+                re.match(r'^PV_?\d+_\d+$', key) or
+                (key.startswith('_') and remove_underscored) or
+                (key == 'COMMENT' and remove_comments) or
+                (key == 'HISTORY' and remove_history)
         ):
             keys_to_remove.append(key)
 
