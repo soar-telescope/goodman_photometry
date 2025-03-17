@@ -191,21 +191,40 @@ def check_wcs(header: Header) -> WCS:
 
 def wcs_sip2pv(header):
     """
-    Convert the WCS header from SIP to TPV representation
+    Convert the WCS header from SIP (Simple Imaging Polynomial) to TPV (Tangent Plane Polynomial) representation.
+
+    This function modifies the input FITS header to replace SIP distortion keywords with TPV distortion keywords.
+    It ensures the presence of the CD matrix by converting the PC matrix if necessary.
+
+    Args:
+        header (astropy.io.fits.Header or dict): The FITS header containing SIP distortion keywords.
+
+    Returns:
+        astropy.io.fits.Header or dict: The modified header with TPV distortion keywords.
     """
 
+    # Create a copy of the header to avoid modifying the original
     header = header.copy()
 
-    # sip_to_pv expects CD matrix to be present
-    if 'CD1_1' not in header and 'PC1_1' in header:
-        cdelt = [header.get('CDELT1'), header.get('CDELT2')]
+    # If the CD matrix is not present but the PC matrix is, convert PC to CD
+    if 'CD1_1' not in header and all(key in header for key in ['PC1_1', 'PC2_1', 'PC1_2', 'PC2_2', 'CDELT1', 'CDELT2']):
+        # Retrieve the CDELT values (scaling factors for the axes)
+        cdelt_values = [header.get('CDELT1'), header.get('CDELT2')]
 
-        header['CD1_1'] = header.pop('PC1_1') * cdelt[0]
-        header['CD2_1'] = header.pop('PC2_1') * cdelt[0]
-        header['CD1_2'] = header.pop('PC1_2') * cdelt[0]
-        header['CD2_2'] = header.pop('PC2_2') * cdelt[0]
+        # Convert PC matrix to CD matrix by multiplying with CDELT
+        header['CD1_1'] = header.pop('PC1_1') * cdelt_values[0]
+        header['CD2_1'] = header.pop('PC2_1') * cdelt_values[0]
+        header['CD1_2'] = header.pop('PC1_2') * cdelt_values[0]
+        header['CD2_2'] = header.pop('PC2_2') * cdelt_values[0]
 
-    sip_tpv.sip_to_pv(header)
+    # Check if the header contains the required SIP keywords for conversion
+    if all(key in header for key in ['A_ORDER', 'B_ORDER', 'A_0_2', 'A_2_0', 'B_0_2', 'B_2_0']):
+        # Convert SIP distortion keywords to TPV representation
+        sip_tpv.sip_to_pv(header)
+    else:
+        # If SIP keywords are missing, log a warning or skip the conversion
+        import warnings
+        warnings.warn("SIP keywords are missing. Skipping SIP to TPV conversion.")
 
     return header
 
