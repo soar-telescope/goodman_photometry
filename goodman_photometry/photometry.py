@@ -225,27 +225,27 @@ class Photometry(object):
                       f"magnitudes from {self.catalog_name} converted to {photometry_filter} filter")
 
         magnitudes = calibrate_photometry(
-            obj=self.sources,
-            cat=catalog,
-            pixscale=self.pixel_scale,
-            ecmag_thresh=self.magnitude_error_threshold,
-            cmag_limits=self.magnitude_range,
-            cat_col_mag=photometry_filter,
-            cat_col_mag1=None,
-            cat_col_mag2=None,
-            order=0,
+            object_table=self.sources,
+            catalog_table=catalog,
+            pixel_scale=self.pixel_scale,
+            error_threshold=self.magnitude_error_threshold,
+            magnitude_limits=self.magnitude_range,
+            object_mag_column=photometry_filter,
+            catalog_mag1_column=None,
+            catalog_mag2_column=None,
+            spatial_order=0,
             verbose=True)
 
         magnitudes_with_default_filter = calibrate_photometry(
-            obj=self.sources,
-            cat=catalog,
-            pixscale=self.pixel_scale,
-            ecmag_thresh=self.magnitude_error_threshold,
-            cmag_limits=self.magnitude_range,
-            cat_col_mag=default_photometry_filter,
-            cat_col_mag1=None,
-            cat_col_mag2=None,
-            order=0,
+            object_table=self.sources,
+            catalog_table=catalog,
+            pixel_scale=self.pixel_scale,
+            error_threshold=self.magnitude_error_threshold,
+            magnitude_limits=self.magnitude_range,
+            catalog_mag_column=default_photometry_filter,
+            catalog_mag1_column=None,
+            catalog_mag2_column=None,
+            spatial_order=0,
             verbose=True)
 
         check_photometry_results(magnitudes)

@@ -2346,124 +2346,134 @@ def match(
     }
 
 
-# photometry - pipeline (STDPipe)
 def calibrate_photometry(
-    obj,
-    cat,
-    sr=None,
-    pixscale=None,
-    order=0,
-    bg_order=None,
-    obj_col_mag='mag',
-    obj_col_mag_err='magerr',
-    obj_col_ra='ra',
-    obj_col_dec='dec',
-    obj_col_flags='flags',
-    obj_col_x='x',
-    obj_col_y='y',
-    cat_col_mag='R',
-    cat_col_mag_err=None,
-    cat_col_mag1=None,
-    cat_col_mag2=None,
-    cat_col_ra='RAJ2000',
-    cat_col_dec='DEJ2000',
-    ecmag_thresh=None,  # FN
-    cmag_limits=None,  # FN
-    update=True,
+    object_table,
+    catalog_table,
+    search_radius=None,
+    pixel_scale=None,
+    spatial_order=0,
+    background_order=None,
+    object_mag_column='mag',
+    object_mag_error_column='magerr',
+    object_ra_column='ra',
+    object_dec_column='dec',
+    object_flags_column='flags',
+    object_x_column='x',
+    object_y_column='y',
+    catalog_mag_column='R',
+    catalog_mag_error_column=None,
+    catalog_mag1_column=None,
+    catalog_mag2_column=None,
+    catalog_ra_column='RAJ2000',
+    catalog_dec_column='DEJ2000',
+    error_threshold=None,
+    magnitude_limits=None,
+    update_results=True,
     verbose=False,
     **kwargs
 ):
-
-    """Higher-level photometric calibration routine.
-
-    It wraps :func:`stdpipe.photometry.match` routine with some convenient defaults so that it is easier to use with typical tabular data.
-
-    :param obj: Table of detected objects
-    :param cat: Reference photometric catalogue
-    :param sr: Matching radius in degrees, optional
-    :param pixscale: Pixel scale, degrees per pixel. If specified, and `sr` is not set, then median value of half of FWHM, multiplied by pixel scale, is used as a matching radius.
-    :param order: Order of zero point spatial polynomial (0 for constant).
-    :param bg_order: Order of additive flux term spatial polynomial (None to disable this term in the model)
-    :param obj_col_mag: Column name for object instrumental magnitude
-    :param obj_col_mag_err: Column name for object magnitude error
-    :param obj_col_ra: Column name for object Right Ascension
-    :param obj_col_dec: Column name for object Declination
-    :param obj_col_flags: Column name for object flags
-    :param obj_col_x: Column name for object x coordinate
-    :param obj_col_y: Column name for object y coordinate
-    :param cat_col_mag: Column name for catalogue magnitude
-    :param cat_col_mag_err: Column name for catalogue magnitude error
-    :param cat_col_mag1: Column name for the first catalogue magnitude defining the stellar color
-    :param cat_col_mag2: Column name for the second catalogue magnitude defining the stellar color
-    :param cat_col_ra: Column name for catalogue Right Ascension
-    :param cat_col_dec: Column name for catalogue Declination
-    :param ecmag_thresh: set maximum photometri error to be considered for the photometric calibration (for both observed and catalogue magnitudes)
-    :param cmag_limits: set magnitude range for the catalog magnitudes to avoid weird values ([8,22] should work for most of the cases)
-    :param update: If True, `mag_calib` and `mag_calib_err` columns with calibrated magnitude (without color term) and its error will be added to the object table
-    :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function
-    :param **kwargs: The rest of keyword arguments will be directly passed to :func:`stdpipe.photometry.match`.
-    :returns: The dictionary with photometric results, as returned by :func:`stdpipe.photometry.match`.
-
     """
-    if sr is None:
-        if pixscale is not None:
-            # Matching radius of half FWHM
-            sr = np.median(obj['fwhm'] * pixscale) / 2
-        else:
-            # Fallback value of 1 arcsec, should be sensible for most catalogues
-            sr = 1. / 3600
+    Higher-level photometric calibration routine.
 
-    log.info(f"Performing photometric calibration of {len(obj):d} objects vs {len(cat):d} catalogue stars")
-    log.info(f"Using {sr * 3600:.1f} arcsec matching radius, {cat_col_mag:s} magnitude and spatial order {order:d}")
-    if cat_col_mag1 and cat_col_mag2:
-        log.info(f"Using ({cat_col_mag1:s} - {cat_col_mag2:s}) color for color term")
-        color = cat[cat_col_mag1] - cat[cat_col_mag2]
+    This function wraps the `stdpipe.photometry.match` routine with convenient defaults for typical tabular data.
+    It performs photometric calibration by matching objects in the object table to stars in the reference catalog.
+
+    Args:
+        object_table (astropy.table.Table): Table of detected objects.
+        catalog_table (astropy.table.Table): Reference photometric catalog.
+        search_radius (float, optional): Matching radius in degrees. If not provided, it is calculated based on the pixel scale and object FWHM.
+        pixel_scale (float, optional): Pixel scale in degrees per pixel. Used to calculate the search radius if not provided.
+        spatial_order (int, optional): Order of the spatial polynomial for the zero point (0 for constant). Default is 0.
+        background_order (int, optional): Order of the spatial polynomial for the additive flux term. Set to None to disable this term.
+        object_mag_column (str, optional): Column name for object instrumental magnitude. Default is 'mag'.
+        object_mag_error_column (str, optional): Column name for object magnitude error. Default is 'magerr'.
+        object_ra_column (str, optional): Column name for object Right Ascension. Default is 'ra'.
+        object_dec_column (str, optional): Column name for object Declination. Default is 'dec'.
+        object_flags_column (str, optional): Column name for object flags. Default is 'flags'.
+        object_x_column (str, optional): Column name for object x coordinate. Default is 'x'.
+        object_y_column (str, optional): Column name for object y coordinate. Default is 'y'.
+        catalog_mag_column (str, optional): Column name for catalog magnitude. Default is 'R'.
+        catalog_mag_error_column (str, optional): Column name for catalog magnitude error. Default is None.
+        catalog_mag1_column (str, optional): Column name for the first catalog magnitude defining the stellar color. Default is None.
+        catalog_mag2_column (str, optional): Column name for the second catalog magnitude defining the stellar color. Default is None.
+        catalog_ra_column (str, optional): Column name for catalog Right Ascension. Default is 'RAJ2000'.
+        catalog_dec_column (str, optional): Column name for catalog Declination. Default is 'DEJ2000'.
+        error_threshold (float, optional): Maximum photometric error to consider for calibration (for both observed and catalog magnitudes). Default is None.
+        magnitude_limits (list, optional): Magnitude range for catalog magnitudes to avoid outliers (e.g., [8, 22]). Default is None.
+        update_results (bool, optional): If True, adds `mag_calib` and `mag_calib_err` columns to the object table. Default is True.
+        verbose (bool or callable, optional): Whether to show verbose messages during execution. Default is False.
+        **kwargs: Additional keyword arguments passed to `stdpipe.photometry.match`.
+
+    Returns:
+        dict: A dictionary containing photometric calibration results, as returned by `stdpipe.photometry.match`.
+    """
+    # Calculate search radius if not provided
+    if search_radius is None:
+        if pixel_scale is not None:
+            # Use half of the median FWHM multiplied by the pixel scale
+            search_radius = np.median(object_table['fwhm'] * pixel_scale) / 2
+        else:
+            # Fallback to 1 arcsec (in degrees)
+            search_radius = 1.0 / 3600
+
+    # Log calibration details
+    log.info(f"Performing photometric calibration of {len(object_table):d} objects vs {len(catalog_table):d} catalog stars")
+    log.info(f"Using {search_radius * 3600:.1f} arcsec matching radius, {catalog_mag_column:s} magnitude, and spatial order {spatial_order:d}")
+
+    # Calculate color term if color columns are provided
+    if catalog_mag1_column and catalog_mag2_column:
+        log.info(f"Using ({catalog_mag1_column:s} - {catalog_mag2_column:s}) color for color term")
+        color = catalog_table[catalog_mag1_column] - catalog_table[catalog_mag2_column]
     else:
         color = None
 
-    if cat_col_mag_err:
-        cat_magerr = cat[cat_col_mag_err]
-    else:
-        cat_magerr = None
+    # Handle catalog magnitude errors
+    catalog_mag_error = catalog_table[catalog_mag_error_column] if catalog_mag_error_column else None
 
-    m = match(obj[obj_col_ra],
-              obj[obj_col_dec],
-              obj[obj_col_mag],
-              obj[obj_col_mag_err],
-              obj[obj_col_flags],
-              cat[cat_col_ra],
-              cat[cat_col_dec],
-              cat[cat_col_mag],
-              cat_magerr=cat_magerr,
-              sr=sr,
-              cat_color=color,
-              obj_x=obj[obj_col_x] if obj_col_x else None,
-              obj_y=obj[obj_col_y] if obj_col_y else None,
-              spatial_order=order,
-              bg_order=bg_order,
-              ecmag_thresh=ecmag_thresh,  # FN
-              cmag_limits=cmag_limits,   # FN
-              verbose=verbose,
-              **kwargs)
+    # Perform photometric matching
+    match_results = match(
+        object_table[object_ra_column],
+        object_table[object_dec_column],
+        object_table[object_mag_column],
+        object_table[object_mag_error_column],
+        object_table[object_flags_column],
+        catalog_table[catalog_ra_column],
+        catalog_table[catalog_dec_column],
+        catalog_table[catalog_mag_column],
+        cat_magerr=catalog_mag_error,
+        sr=search_radius,
+        cat_color=color,
+        obj_x=object_table[object_x_column] if object_x_column else None,
+        obj_y=object_table[object_y_column] if object_y_column else None,
+        spatial_order=spatial_order,
+        bg_order=background_order,
+        ecmag_thresh=error_threshold,
+        cmag_limits=magnitude_limits,
+        verbose=verbose,
+        **kwargs
+    )
 
-    if m:
+    if match_results:
         log.info("Photometric calibration finished successfully.")
-        # if m['color_term']:
-        #     log.info("Color term is .2f' % m['color_term'])
+        # Store catalog column names in the results
+        match_results['cat_col_mag'] = catalog_mag_column
+        if catalog_mag1_column and catalog_mag2_column:
+            match_results['cat_col_mag1'] = catalog_mag1_column
+            match_results['cat_col_mag2'] = catalog_mag2_column
 
-        m['cat_col_mag'] = cat_col_mag
-        if cat_col_mag1 and cat_col_mag2:
-            m['cat_col_mag1'] = cat_col_mag1
-            m['cat_col_mag2'] = cat_col_mag2
-
-        if update:
-            obj['mag_calib'] = obj[obj_col_mag] + m['zero_fn'](obj['x'], obj['y'], obj['mag'])
-            obj['mag_calib_err'] = np.hypot(obj[obj_col_mag_err],
-                                            m['zero_fn'](obj['x'], obj['y'], obj['mag'], get_err=True))
+        # Update object table with calibrated magnitudes if requested
+        if update_results:
+            object_table['mag_calib'] = object_table[object_mag_column] + match_results['zero_fn'](
+                object_table[object_x_column], object_table[object_y_column], object_table[object_mag_column]
+            )
+            object_table['mag_calib_err'] = np.hypot(
+                object_table[object_mag_error_column],
+                match_results['zero_fn'](object_table[object_x_column], object_table[object_y_column], object_table[object_mag_column], get_err=True)
+            )
     else:
         log.info("Photometric calibration failed")
 
-    return m
+    return match_results
 
 
 def convert_match_results_to_table(match_results, pixscale=None, columns=None):

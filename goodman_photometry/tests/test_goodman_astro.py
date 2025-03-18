@@ -47,7 +47,8 @@ from ..goodman_astro import (
     convert_match_results_to_table,
     # match_photometric_objects,
     wcs_sip2pv,
-    get_intrinsic_scatter)
+    get_intrinsic_scatter,
+    calibrate_photometry)
 
 
 class TestExtractObservationMetadata(unittest.TestCase):
@@ -1578,5 +1579,166 @@ class TestGetIntrinsicScatter(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_intrinsic_scatter(observed_values, observed_errors)
 
+
+class TestCalibratePhotometry(unittest.TestCase):
+    """
+    Test suite for the `calibrate_photometry` function.
+    """
+
+    def setUp(self):
+        """
+        Set up synthetic test data for the test cases.
+        """
+        # Synthetic object table
+        self.object_table = Table({
+            'ra': [10.0, 10.1, 10.2],  # Right Ascension (degrees)
+            'dec': [20.0, 20.1, 20.2],  # Declination (degrees)
+            'mag': [18.0, 18.1, 18.3],  # Instrumental magnitude
+            'magerr': [0.03, 0.04, 0.05],  # Magnitude error
+            'flags': [0, 0, 0],  # Flags
+            'x': [100.0, 200.0, 300.0],  # X coordinates (pixels)
+            'y': [150.0, 250.0, 350.0],  # Y coordinates (pixels)
+            'fwhm': [2.0, 2.1, 2.2]  # FWHM (pixels)
+        })
+
+        # Synthetic catalog table
+        self.catalog_table = Table({
+            'RAJ2000': [10.0, 10.1, 10.2],  # Right Ascension (degrees)
+            'DEJ2000': [20.0, 20.1, 20.2],  # Declination (degrees)
+            'R': [18.1, 18.0, 18.4],  # Catalog magnitude
+            'B': [19.0, 18.9, 19.3],  # First magnitude for color term
+            'V': [18.5, 18.4, 18.8]  # Second magnitude for color term
+        })
+
+    @patch('goodman_photometry.goodman_astro.match')
+    def test_basic_calibration(self, mock_match):
+        """
+        Test basic photometric calibration with default parameters.
+        """
+        # Mock the match function to return a dummy result
+        def zero_fn(x, y, mag, get_err=False):
+            return 0.01 if get_err else 0.1
+
+        mock_match.return_value = {
+            'zero_fn': zero_fn,  # Dummy zero-point function
+            'color_term': 0.05  # Dummy color term
+        }
+
+        # Call the function
+        results = calibrate_photometry(
+            object_table=self.object_table,
+            catalog_table=self.catalog_table,
+            pixel_scale=0.1 / 3600,  # 0.1 arcsec per pixel
+            verbose=False
+        )
+
+        # Verify the results
+        self.assertIsInstance(results, dict)
+        self.assertIn('zero_fn', results)
+        self.assertIn('color_term', results)
+
+    @patch('goodman_photometry.goodman_astro.match')
+    def test_calibration_with_color_term(self, mock_match):
+        """
+        Test photometric calibration with a color term.
+        """
+        # Mock the match function to return a dummy result
+        def zero_fn(x, y, mag, get_err=False):
+            return 0.01 if get_err else 0.1
+
+        mock_match.return_value = {
+            'zero_fn': zero_fn,  # Dummy zero-point function
+            'color_term': 0.05  # Dummy color term
+        }
+
+        # Call the function with color term columns
+        results = calibrate_photometry(
+            object_table=self.object_table,
+            catalog_table=self.catalog_table,
+            pixel_scale=0.1 / 3600,  # 0.1 arcsec per pixel
+            catalog_mag1_column='B',
+            catalog_mag2_column='V',
+            verbose=False
+        )
+
+        # Verify the results
+        self.assertIsInstance(results, dict)
+        self.assertIn('zero_fn', results)
+        self.assertIn('color_term', results)
+        self.assertIn('cat_col_mag1', results)
+        self.assertIn('cat_col_mag2', results)
+
+    @patch('goodman_photometry.goodman_astro.match')
+    def test_calibration_with_magnitude_limits(self, mock_match):
+        """
+        Test photometric calibration with magnitude limits.
+        """
+        # Mock the match function to return a dummy result
+        def zero_fn(x, y, mag, get_err=False):
+            return 0.01 if get_err else 0.1
+
+        mock_match.return_value = {
+            'zero_fn': zero_fn,  # Dummy zero-point function
+            'color_term': 0.05  # Dummy color term
+        }
+
+        # Call the function with magnitude limits
+        results = calibrate_photometry(
+            object_table=self.object_table,
+            catalog_table=self.catalog_table,
+            pixel_scale=0.1 / 3600,  # 0.1 arcsec per pixel
+            magnitude_limits=[8, 22],  # Magnitude limits
+            verbose=False
+        )
+
+        # Verify the results
+        self.assertIsInstance(results, dict)
+        self.assertIn('zero_fn', results)
+
+    @patch('goodman_photometry.goodman_astro.match')
+    def test_calibration_with_error_threshold(self, mock_match):
+        """
+        Test photometric calibration with an error threshold.
+        """
+        # Mock the match function to return a dummy result
+        def zero_fn(x, y, mag, get_err=False):
+            return 0.01 if get_err else 0.1
+
+        mock_match.return_value = {
+            'zero_fn': zero_fn,  # Dummy zero-point function
+            'color_term': 0.05  # Dummy color term
+        }
+
+        # Call the function with an error threshold
+        results = calibrate_photometry(
+            object_table=self.object_table,
+            catalog_table=self.catalog_table,
+            pixel_scale=0.1 / 3600,  # 0.1 arcsec per pixel
+            error_threshold=0.1,  # Error threshold
+            verbose=False
+        )
+
+        # Verify the results
+        self.assertIsInstance(results, dict)
+        self.assertIn('zero_fn', results)
+
+    @patch('goodman_photometry.goodman_astro.match')
+    def test_calibration_failure(self, mock_match):
+        """
+        Test photometric calibration failure.
+        """
+        # Mock the match function to return None (simulating failure)
+        mock_match.return_value = None
+
+        # Call the function
+        results = calibrate_photometry(
+            object_table=self.object_table,
+            catalog_table=self.catalog_table,
+            pixel_scale=0.1 / 3600,  # 0.1 arcsec per pixel
+            verbose=False
+        )
+
+        # Verify the results
+        self.assertIsNone(results)
 if __name__ == "__main__":
     unittest.main()
