@@ -386,7 +386,7 @@ def goodman_photometry():
     args = get_photometry_args()
 
     setup_logging(debug=args.debug, log_filename=args.log_filename)
-    log = logging.getLogger()
+
     photometry = Photometry(
         catalog_name=args.catalog_name,
         magnitude_threshold=args.magnitude_threshold,

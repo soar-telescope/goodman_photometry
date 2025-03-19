@@ -1740,5 +1740,7 @@ class TestCalibratePhotometry(unittest.TestCase):
 
         # Verify the results
         self.assertIsNone(results)
+
+
 if __name__ == "__main__":
     unittest.main()

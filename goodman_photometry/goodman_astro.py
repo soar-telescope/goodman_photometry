@@ -2045,7 +2045,8 @@ def get_intrinsic_scatter(observed_values, observed_errors, min_scatter=0, max_s
         return -0.5 * np.sum((values - model) ** 2 / total_variance + np.log(total_variance))
 
     # Define the negative log-likelihood function
-    negative_log_likelihood = lambda *args: -log_likelihood(*args)
+    def negative_log_likelihood(*args):
+        return -log_likelihood(*args)
 
     # Perform optimization to find the best-fit parameters
     optimization_result = minimize(
@@ -2205,10 +2206,11 @@ def match(
     # weights = 1.0/zero_err**2
 
     # filter bad photometry
-    idx0 = (np.isfinite(omag)
-            & np.isfinite(omag_err)
-            & np.isfinite(cmag)
-            & np.isfinite(cmag_err) & ((oflags & ~accept_flags) == 0))  # initial mask
+    idx0 = (np.isfinite(omag) &
+            np.isfinite(omag_err) &
+            np.isfinite(cmag) &
+            np.isfinite(cmag_err) &
+            ((oflags & ~accept_flags) == 0))  # initial mask
 
     # FN remove large errors
     if ecmag_thresh is not None:
