@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Goodman Pipeline
+name: Goodman Photometry
 
 on:
   push:
@@ -17,31 +17,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-
-          - name: Python 3.12 with Coverage
+          
+          - name: Python 3.13 with Coverage
             os: ubuntu-latest
-            python: '3.12'
-            toxenv: py312-test-cov
+            python: '3.13'
+            toxenv: py313-test-cov
+
+          - name: Python 3.13
+            os: ubuntu-latest
+            python: '3.13'
+            toxenv: py313-test
 
           - name: Python 3.12
             os: ubuntu-latest
             python: '3.12'
             toxenv: py312-test
 
+          - name: Python 3.11
+            os: ubuntu-latest
+            python: '3.11'
+            toxenv: py311-test
+          
           - name: Python 3.10
             os: ubuntu-latest
             python: '3.10'
             toxenv: py310-test
-
-          - name: Python 3.9
-            os: ubuntu-latest
-            python: 3.9
-            toxenv: py39-test
-
-          - name: Python 3.8
-            os: ubuntu-latest
-            python: 3.8
-            toxenv: py38-test
 
     steps:
     - name: Checkout code
