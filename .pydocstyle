@@ -1,4 +1,4 @@
 [pydocstyle]
 convention = google
-add-ignore = D100,D104
 match-dir = (?!build|venv|dist|tests).*  # skip unwanted dirs
+match = (?!__init__\.py|version\.py$).*\.py

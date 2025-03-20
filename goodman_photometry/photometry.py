@@ -1,3 +1,33 @@
+"""Photometric Calibration Module for Astronomical Images.
+
+This module provides a class for performing photometric calibration on astronomical images
+using the Goodman High Throughput Spectrograph (HTS) data. It includes functionality for:
+
+- Detecting sources in astronomical images using SExtractor.
+- Performing photometric calibration using a specified catalog (e.g., Gaia DR2).
+- Assessing data quality metrics such as FWHM and ellipticity.
+- Saving results, including calibrated magnitudes, plots, and updated FITS headers.
+
+The main class, `Photometry`, encapsulates the entire photometric calibration process,
+from loading the image data to saving the final calibrated results.
+
+Classes:
+    Photometry: A class for performing photometric calibration on astronomical images.
+
+Example:
+    To perform photometric calibration on an image:
+    >>> from photometry import Photometry
+    >>> photometry = Photometry(catalog_name='gaiadr2', magnitude_threshold=17, save_plots=True)
+    >>> photometry("observation.fits")
+
+Notes:
+    - The module relies on external libraries such as `astropy`, `numpy`, and `matplotlib`.
+    - SExtractor is used for source detection, and the Gaia DR2 catalog is used for calibration by default.
+    - Logging is used extensively to provide detailed information about the processing steps.
+
+Version:
+    The module version is retrieved from the package metadata using `importlib.metadata`.
+"""
 import datetime
 import logging
 import warnings
@@ -31,6 +61,44 @@ warnings.simplefilter(action='ignore', category=VerifyWarning)
 
 
 class Photometry(object):
+    """A class for performing photometric calibration on astronomical images.
+
+    This class provides functionality for processing astronomical images, detecting sources,
+    and performing photometric calibration using a specified catalog. It supports logging,
+    plotting, and saving results for further analysis.
+
+    Attributes:
+        filename (str): The path to the input FITS file.
+        output_filename (str): The path to the output file (if applicable).
+        save_plots (bool): If True, saves plots of the processing steps.
+        debug (bool): If True, enables debug-level logging.
+        catalog_name (str): The name of the catalog used for photometric calibration.
+        magnitude_threshold (float): The magnitude threshold for source detection.
+        magnitude_error_threshold (float): The maximum allowed magnitude error for calibration.
+        magnitude_range (list): The range of magnitudes to consider for calibration.
+        plot_file_resolution (int): The resolution (in DPI) for saved plots.
+        color_map (str): The colormap used for plotting.
+        log (logging.Logger): The logger instance for logging messages.
+        sources (astropy.table.Table): The table of detected sources.
+        data_quality_sources (astropy.table.Table): The table of sources used for data quality assessment.
+        _data_quality (dict): A dictionary containing data quality metrics (FWHM, ellipticity, etc.).
+
+    Args:
+        catalog_name (str, optional): The name of the catalog to use for photometric calibration.
+                                      Defaults to 'gaiadr2'.
+        magnitude_threshold (float, optional): The magnitude threshold for source detection.
+                                              Defaults to 17.
+        magnitude_error_threshold (float, optional): The maximum allowed magnitude error for calibration.
+                                                    Defaults to 0.1.
+        color_map (str, optional): The colormap to use for plotting. Defaults to 'Blues_r'.
+        plot_file_resolution (int, optional): The resolution (in DPI) for saved plots. Defaults to 600.
+        save_plots (bool, optional): If True, saves plots of the processing steps. Defaults to False.
+        debug (bool, optional): If True, enables debug-level logging. Defaults to False.
+
+    Example:
+        >>> photometry = Photometry(catalog_name='gaiadr2', magnitude_threshold=17, save_plots=True)
+        >>> photometry("observation.fits")
+    """
 
     def __init__(self,
                  catalog_name='gaiadr2',
@@ -40,6 +108,43 @@ class Photometry(object):
                  plot_file_resolution=600,
                  save_plots=False,
                  debug=False) -> None:
+        """Initialize the Photometry class.
+
+        This method initializes the Photometry class with default or user-specified parameters
+        for photometric calibration. It sets up attributes for catalog selection, magnitude thresholds,
+        plotting preferences, and logging.
+
+        Args:
+            catalog_name (str, optional): The name of the catalog to use for photometric calibration.
+                                          Defaults to 'gaiadr2'.
+            magnitude_threshold (float, optional): The magnitude threshold for source detection.
+                                                  Defaults to 17.
+            magnitude_error_threshold (float, optional): The maximum allowed magnitude error for calibration.
+                                                        Defaults to 0.1.
+            color_map (str, optional): The colormap to use for plotting. Defaults to 'Blues_r'.
+            plot_file_resolution (int, optional): The resolution (in DPI) for saved plots. Defaults to 600.
+            save_plots (bool, optional): If True, saves plots of the processing steps. Defaults to False.
+            debug (bool, optional): If True, enables debug-level logging. Defaults to False.
+
+        Attributes:
+            filename (str): The path to the input FITS file.
+            output_filename (str): The path to the output file (if applicable).
+            save_plots (bool): If True, saves plots of the processing steps.
+            debug (bool): If True, enables debug-level logging.
+            catalog_name (str): The name of the catalog used for photometric calibration.
+            magnitude_threshold (float): The magnitude threshold for source detection.
+            magnitude_error_threshold (float): The maximum allowed magnitude error for calibration.
+            magnitude_range (list): The range of magnitudes to consider for calibration.
+            plot_file_resolution (int): The resolution (in DPI) for saved plots.
+            color_map (str): The colormap used for plotting.
+            log (logging.Logger): The logger instance for logging messages.
+            sources (astropy.table.Table): The table of detected sources.
+            data_quality_sources (astropy.table.Table): The table of sources used for data quality assessment.
+            _data_quality (dict): A dictionary containing data quality metrics (FWHM, ellipticity, etc.).
+
+        Example:
+            >>> photometry = Photometry(catalog_name='gaiadr2', magnitude_threshold=17, save_plots=True)
+        """
         self.filename = None
         self.output_filename = None
         self.save_plots = save_plots
@@ -65,10 +170,41 @@ class Photometry(object):
 
     @property
     def dq(self):
+        """Get the data quality assessment results.
+
+        This property provides access to the data quality assessment results, which include:
+        - FWHM (Full Width at Half Maximum) of detected sources.
+        - FWHM error.
+        - Ellipticity of detected sources.
+        - Ellipticity error.
+
+        Returns:
+            dict: A dictionary containing the data quality metrics. The keys are:
+                - 'fwhm': The median FWHM of detected sources.
+                - 'fwhm_error': The uncertainty in the FWHM measurement.
+                - 'ellipticity': The median ellipticity of detected sources.
+                - 'ellipticity_error': The uncertainty in the ellipticity measurement.
+        """
         return self._data_quality
 
     @dq.setter
     def dq(self, results):
+        """Set the data quality assessment results.
+
+        This setter updates the data quality assessment results. It ensures that only valid
+        float values are assigned to the respective keys in the `_data_quality` dictionary.
+
+        Args:
+            results (tuple): A tuple containing the following values in order:
+                - fwhm (float): The median FWHM of detected sources.
+                - fwhm_error (float): The uncertainty in the FWHM measurement.
+                - ellipticity (float): The median ellipticity of detected sources.
+                - ellipticity_error (float): The uncertainty in the ellipticity measurement.
+
+        Notes:
+            - Only float values are accepted for updating the data quality metrics.
+            - If any value in the tuple is not a float, it is ignored.
+        """
         fwhm, fwhm_error, ellipticity, ellipticity_error = results
         if isinstance(fwhm, float):
             self._data_quality["fwhm"] = fwhm
@@ -80,6 +216,32 @@ class Photometry(object):
             self._data_quality["ellipticity_error"] = ellipticity_error
 
     def __call__(self, filename) -> None:
+        """Process a FITS file for photometric calibration.
+
+        This method processes a FITS file by performing the following steps:
+        1. Loads the image data and header.
+        2. Extracts metadata such as filter name, exposure time, and pixel scale.
+        3. Normalizes the image data by exposure time.
+        4. Creates a bad pixel mask to exclude saturated or defective pixels.
+        5. Runs SExtractor to detect sources in the image.
+        6. Performs data quality assessment on the detected sources.
+        7. Executes photometric calibration using the detected sources.
+
+        Args:
+            filename (str): The path to the FITS file to be processed.
+
+        Returns:
+            None: The method does not return a value but updates internal attributes and saves outputs.
+
+        Notes:
+            - The method logs detailed information about the processing steps.
+            - If `save_plots` is enabled, plots of the image and detections are saved.
+            - The photometric calibration results are saved in the FITS header and output files.
+
+        Example:
+            >>> processor = PhotometryProcessor()
+            >>> processor("observation.fits")
+        """
         self.filename = filename
 
         self.start = datetime.datetime.now()
@@ -148,6 +310,32 @@ class Photometry(object):
                            fov_radius=fov_radius)
 
     def run_sextractor(self, data, mask, gain, pixel_scale, wcs, seeing=1):
+        """Run SExtractor to detect sources in the image.
+
+        This method runs SExtractor to detect sources in the provided image data. It calculates the aperture
+        size based on the seeing and pixel scale, detects sources, and optionally saves a plot of the detections.
+
+        Args:
+            data (numpy.ndarray): The image data array to be processed.
+            mask (numpy.ndarray): A mask array to exclude certain regions from detection.
+            gain (float): The gain of the image, used for SExtractor calculations.
+            pixel_scale (float): The pixel scale of the image (in arcseconds per pixel).
+            wcs (astropy.wcs.WCS): The World Coordinate System (WCS) information for the image.
+            seeing (float, optional): The seeing value (in arcseconds) used to calculate the aperture size.
+                                      Defaults to 1.
+
+        Returns:
+            astropy.table.Table: A table containing the detected sources, including their positions, fluxes,
+                                 and other SExtractor measurements.
+
+        Notes:
+            - The aperture size is calculated using the seeing and pixel scale.
+            - SExtractor flags are logged for diagnostic purposes.
+            - If `save_plots` is enabled, a plot of the detected sources is saved.
+
+        Example:
+            >>> sources = run_sextractor(data, mask, gain=2.0, pixel_scale=0.2, wcs=wcs, seeing=1.5)
+        """
         full_width_at_tenth_maximum_to_fwhm = 1.82
         aperture = np.round(full_width_at_tenth_maximum_to_fwhm * seeing / (pixel_scale * 3600.))
         self.log.info(f"SExtractor aperture radius: {aperture:.1f} pixels.")
@@ -180,6 +368,28 @@ class Photometry(object):
         return self.sources
 
     def data_quality_assessment(self, data):
+        """Assess the quality of photometric data by analyzing source detections.
+
+        This method evaluates the quality of detected sources using predefined criteria.
+        It filters sources with `flags == 0` (high-quality detections) and, if enabled,
+        generates a diagnostic plot highlighting these detections. It then computes
+        key quality metrics such as FWHM (Full Width at Half Maximum) and ellipticity.
+
+        Args:
+            data (numpy.ndarray): The image data used for photometric analysis.
+
+        Returns:
+            dict: A dictionary containing the following data quality metrics:
+                - `fwhm` (float): Median Full Width at Half Maximum of sources.
+                - `fwhm_error` (float): Uncertainty in FWHM.
+                - `ellipticity` (float): Median ellipticity of sources.
+                - `ellipticity_error` (float): Uncertainty in ellipticity.
+
+        Notes:
+            - Only sources with `flags == 0` are considered for quality assessment.
+            - If `save_plots` is enabled, a visualization of detected sources is saved.
+            - The computed metrics are logged for further analysis.
+        """
         self.data_quality_sources = self.sources[self.sources['flags'] == 0]
         if self.save_plots:
             output_filename = self.filename.replace(".fits", "_phot_detections_flag0.png")
@@ -209,6 +419,29 @@ class Photometry(object):
         return self.dq
 
     def do_photometry(self, data, header, wcs, center_ra, center_dec, fov_radius):
+        """Perform photometric calibration on Goodman HST data.
+
+        This method calibrates the photometry of Goodman High Throughput Spectrograph (HST) observations
+        using a specified catalog and filter. It retrieves the catalog data, performs photometric calibration,
+        and saves the results, including calibrated magnitudes, plots, and updated FITS headers.
+
+        Args:
+            data (numpy.ndarray): The image data array to be processed.
+            header (astropy.io.fits.Header): The FITS header associated with the image data.
+            wcs (astropy.wcs.WCS): The World Coordinate System (WCS) information for the image.
+            center_ra (float): Right ascension (RA) of the center of the field of view (in degrees).
+            center_dec (float): Declination (Dec) of the center of the field of view (in degrees).
+            fov_radius (float): Radius of the field of view (in degrees).
+
+        Notes:
+            - The method uses a catalog (e.g., 'gaiadr2') to retrieve reference stars for photometric calibration.
+            - Calibration is performed using a specified filter, and results are saved in the FITS header.
+            - Plots of the photometric calibration process are generated and saved if `save_plots` is enabled.
+            - The calibrated data and updated header are saved to a new FITS file.
+
+        Example:
+            >>> do_photometry(data, header, wcs, 123.45, -67.89, 0.1)
+        """
         catalog_filter, photometry_filter = get_filter_set(filter_name=self.filter_name)
         default_photometry_filter = 'Gmag'
         self.log.debug(f"Calibrating Goodman HST {self.filter_name} "
@@ -382,7 +615,29 @@ class Photometry(object):
 
 
 def goodman_photometry():
+    """Executes the photometry pipeline using user-defined arguments.
 
+    This function initializes and runs the photometry process based on command-line
+    arguments. It sets up logging, processes input parameters, and performs
+    photometric analysis using the `Photometry` class.
+
+    The main steps include:
+    1. Parsing command-line arguments using `get_photometry_args()`.
+    2. Configuring logging based on user preferences.
+    3. Initializing a `Photometry` object with the specified parameters.
+    4. Running the photometry pipeline on the provided input file.
+
+    Args:
+        None (all parameters are retrieved from command-line arguments).
+
+    Returns:
+        None
+
+    Notes:
+        - The function relies on `get_photometry_args()` to extract parameters.
+        - Logging behavior is controlled by `setup_logging()`.
+        - The `Photometry` class handles the photometry computation.
+    """
     args = get_photometry_args()
 
     setup_logging(debug=args.debug, log_filename=args.log_filename)

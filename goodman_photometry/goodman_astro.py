@@ -1,3 +1,31 @@
+"""A module for Goodman photometry and astrometry data processing.
+
+This module provides functions for processing photometric data from the Goodman telescope,
+including FITS header handling, WCS management, object detection, photometric calibration,
+and data visualization. It integrates with various astronomical data reduction tools
+and libraries like Astropy and SExtractor.
+
+Key Features:
+    - FITS header metadata extraction and manipulation
+    - WCS (World Coordinate System) handling and conversion
+    - Object detection using SExtractor
+    - Photometric calibration and zero-point calculation
+    - Catalog matching and data quality evaluation
+    - Visualization tools for images and photometric results
+    - Integration with Vizier catalog services
+
+Main Functions:
+    extract_observation_metadata(): Extracts observation metadata from FITS headers.
+    calculate_saturation_threshold(): Calculates saturation threshold based on gain/read noise.
+    check_wcs(): Validates and returns WCS from a FITS header.
+    get_objects_sextractor(): Detects objects in an image using SExtractor.
+    calibrate_photometry(): Performs photometric calibration using reference catalogs.
+    get_vizier_catalog(): Retrieves catalog data from Vizier services.
+    plot_image(): Plots 2D images with optional WCS projection.
+
+The module is designed to work within the Goodman data reduction pipeline,
+providing tools for accurate photometric and astrometric calibration.
+"""
 import logging
 import os
 import re
@@ -90,8 +118,7 @@ CATALOGS = {
 
 
 def extract_observation_metadata(header):
-    """
-    Extracts observation metadata from a FITS header and ensures the wavelength mode is IMAGING.
+    """Extracts observation metadata from a FITS header and ensures the wavelength mode is IMAGING.
 
     Args:
         header (astropy.io.fits.Header): The FITS header containing observation metadata.
@@ -140,8 +167,7 @@ def extract_observation_metadata(header):
 
 
 def calculate_saturation_threshold(gain_value, read_noise_value):
-    """
-    Estimates the saturation threshold based on the readout mode.
+    """Estimates the saturation threshold based on the readout mode.
 
     Args:
         gain_value (float): The detector gain (e-/ADU).
@@ -190,8 +216,7 @@ def check_wcs(header: Header) -> WCS:
 
 
 def wcs_sip2pv(header):
-    """
-    Convert the WCS header from SIP (Simple Imaging Polynomial) to TPV (Tangent Plane Polynomial) representation.
+    """Convert the WCS header from SIP (Simple Imaging Polynomial) to TPV (Tangent Plane Polynomial) representation.
 
     This function modifies the input FITS header to replace SIP distortion keywords with TPV distortion keywords.
     It ensures the presence of the CD matrix by converting the PC matrix if necessary.
@@ -202,7 +227,6 @@ def wcs_sip2pv(header):
     Returns:
         astropy.io.fits.Header or dict: The modified header with TPV distortion keywords.
     """
-
     # Create a copy of the header to avoid modifying the original
     header = header.copy()
 
@@ -248,7 +272,9 @@ def check_photometry_results(results: dict) -> dict:
 
 
 def get_filter_set(filter_name: str) -> tuple[str, str]:
-    """Determine the catalog filter and corresponding photometric filter for calibration,
+    """Determine the catalog filter and corresponding photometric filter.
+
+    Determine the catalog filter and corresponding photometric filter for calibration,
     based on the Goodman filter in use.
 
     Args:
@@ -286,7 +312,8 @@ def get_filter_set(filter_name: str) -> tuple[str, str]:
 
 
 def create_goodman_wcs(header):
-    """
+    """Create WCS from a Header.
+
     Creates a WCS (World Coordinate System) guess using telescope coordinates,
     binning, position angle, and plate scale.
 
@@ -351,8 +378,7 @@ def create_goodman_wcs(header):
 
 
 def mask_field_of_view(image, binning):
-    """
-    Masks out the edges of the field of view (FOV) in Goodman images.
+    """Masks out the edges of the field of view (FOV) in Goodman images.
 
     Args:
         image (numpy.ndarray): The image array from the FITS file.
@@ -377,7 +403,8 @@ def mask_field_of_view(image, binning):
 
 
 def create_bad_pixel_mask(image, saturation_threshold, binning):
-    """
+    """Creates a comprehensive bad pixel mask.
+
     Creates a comprehensive bad pixel mask, identifying and masking saturated pixels, cosmic rays,
     and pixels outside the circular field of view (FOV) of Goodman images.
 
@@ -582,7 +609,6 @@ def get_objects_sextractor(
     :param verbose: Whether to show verbose messages during the run of the function or not. Maybe either boolean, or a `print`-like function.
     :returns: Either the astropy.table.Table object with detected objects, or a list with table of objects (first element) and checkimages (consecutive elements), if checkimages are requested.
     """
-
     # Find the binary
     binname = None
 
@@ -1087,8 +1113,7 @@ def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
                x_points=None, y_points=None, use_wcs_for_points=False,
                point_marker='r.', point_size=2, title=None, figsize=None,
                show_grid=False, output_file=None, dpi=300):
-    """
-    Plots a 2D image with optional WCS projection, color scaling, and overlay points.
+    """Plots a 2D image with optional WCS projection, color scaling, and overlay points.
 
     Args:
         image (numpy.ndarray): The 2D array representing the image data to be plotted.
@@ -1119,7 +1144,6 @@ def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
     Raises:
         ValueError: If the quantiles are invalid (e.g., negative or out of range).
     """
-
     fig, ax = plt.subplots(figsize=figsize, subplot_kw={'projection': wcs} if wcs else None)
 
     # Compute quantiles for color scaling
@@ -1160,8 +1184,7 @@ def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
 
 
 def add_colorbar(mappable=None, ax=None, size="5%", pad=0.1):
-    """
-    Add a colorbar to a matplotlib Axes object.
+    """Add a colorbar to a matplotlib Axes object.
 
     This function appends a colorbar to the side of the given Axes using a
     custom size and padding. If no Axes is provided, the current active Axes
@@ -1209,8 +1232,7 @@ def binned_map(
     data_range=None,
     **imshow_kwargs,
 ):
-    """
-    Plot a binned 2D statistical map from irregular data using `binned_statistic_2d`.
+    """Plot a binned 2D statistical map from irregular data using `binned_statistic_2d`.
 
     Args:
         x (array-like): X-coordinates of data points.
@@ -1279,20 +1301,58 @@ def plot_photometric_match(
     cmag_limits=None,
     **kwargs
 ):
-    """
-    Visualize photometric match results in various modes.
+    """Visualizes photometric match results in various modes.
 
-    Parameters:
-        match_result (dict): Photometric match result dictionary.
-        ax (matplotlib.axes.Axes, optional): Axis to plot on. Defaults to current axis.
-        mode (str): Type of plot ('mag', 'normed', 'color', 'zero', 'model', 'residuals', 'dist').
-        show_masked (bool): Show masked data points.
-        show_final (bool): Highlight final selection.
-        cmag_limits (tuple, optional): X-axis range for magnitude plot.
-        **kwargs: Additional arguments for `binned_map`.
+    This function generates different types of diagnostic plots based on the
+    results of a photometric matching routine. The visualization can include
+    magnitude residuals, normalized residuals, color dependencies, zero points,
+    model predictions, residuals, and distance distributions.
+
+    Args:
+        match_result (dict): Dictionary containing the results of photometric matching.
+            Expected keys include:
+            - `idx0` (ndarray): Boolean mask indicating objects used in initial fitting.
+            - `idx` (ndarray): Boolean mask indicating objects used in the final fit.
+            - `cmag` (ndarray): Catalogue magnitudes of matched objects.
+            - `zero` (ndarray): Empirical zero points (catalogue - instrumental magnitudes).
+            - `zero_model` (ndarray): Modeled zero points.
+            - `zero_err` (ndarray): Errors of the empirical zero points.
+            - `color` (ndarray, optional): Catalogue colors of matched objects.
+            - `ox`, `oy` (ndarray): `x` and `y` coordinates of objects on the image.
+            - `dist` (ndarray): Pairwise distances between matched objects and catalogue stars (in degrees).
+            - `cat_col_mag`, `cat_col_mag1`, `cat_col_mag2` (str, optional):
+              Names of the catalogue magnitudes and colors.
+            - `color_term` (float, optional): Fitted color term for magnitude transformation.
+
+        ax (matplotlib.axes.Axes, optional): The matplotlib axis to plot on. If None,
+            the current axis (`plt.gca()`) will be used.
+        mode (str): Type of plot to generate. Options include:
+            - `'mag'`: Residuals vs. catalogue magnitude.
+            - `'normed'`: Normalized residuals vs. magnitude.
+            - `'color'`: Residuals vs. catalogue color.
+            - `'zero'`: Spatial map of the zero point.
+            - `'model'`: Spatial map of the model zero point.
+            - `'residuals'`: Spatial map of residuals (instrumental - model).
+            - `'dist'`: Spatial map of displacement between matched objects and catalogue stars.
+        show_masked (bool, optional): Whether to display masked data points
+            (those that were rejected from the final fit). Defaults to True.
+        show_final (bool, optional): Whether to highlight the final selection of
+            matched objects used in the fit. Defaults to True.
+        cmag_limits (tuple, optional): Limits for the x-axis in magnitude plots
+            (e.g., `(8, 22)`). If None, limits are automatically determined.
+        **kwargs: Additional arguments passed to `binned_map`, which is used
+            for spatial mapping plots.
 
     Returns:
-        matplotlib.axes.Axes: Axis with the plot.
+        matplotlib.axes.Axes: The axis containing the generated plot.
+
+    Notes:
+        - The function includes a `_model_string()` helper to display the
+          photometric transformation equation used.
+        - `_plot_residual_vs()` is a helper function to generate various
+          residual plots.
+        - When `binned_map` is used (for `zero`, `model`, `residuals`, and `dist` modes),
+          it creates a spatially binned visualization of the respective quantities.
     """
     m = match_result
     ax = ax or plt.gca()
@@ -1387,8 +1447,7 @@ def plot_photcal(
     show_plot=False,
     dpi=300
 ):
-    """
-    Plot a calibrated photometric image with source ellipses colored by a photometric quantity.
+    """Plot a calibrated photometric image with source ellipses colored by a photometric quantity.
 
     Args:
         image (np.ndarray): 2D image array to display.
@@ -1456,8 +1515,7 @@ def get_vizier_catalog(
     include_distance=False,
     verbose=False,
 ):
-    """
-    Download any catalog from Vizier.
+    """Download any catalog from Vizier.
 
     This function retrieves data from Vizier for a given catalog and field region.
     For popular catalogs, additional photometric data is augmented based on analytical magnitude conversion formulas.
@@ -1590,7 +1648,6 @@ def table_to_ldac(table, header=None, writeto=None):
         astropy.io.fits.HDUList:
             The HDU list containing the primary, header, and data extensions.
     """
-
     primary_hdu = fits.PrimaryHDU()
 
     # Ensure header is valid
@@ -1920,8 +1977,7 @@ def clear_wcs(
     remove_underscored=False,
     copy=False,
 ):
-    """
-    Clears WCS-related keywords from a FITS header.
+    """Clears WCS-related keywords from a FITS header.
 
     Args:
         header (astropy.io.fits.Header): Header to operate on.
@@ -1973,8 +2029,7 @@ def clear_wcs(
 
 
 def make_series(multiplier=1.0, x=1.0, y=1.0, order=1, sum=False, zero=True):
-    """
-    Generate a polynomial series up to the specified order using x and y.
+    """Generate a polynomial series up to the specified order using x and y.
 
     Args:
         multiplier (float): Scalar multiplier for each term (default is 1.0).
@@ -2001,8 +2056,7 @@ def make_series(multiplier=1.0, x=1.0, y=1.0, order=1, sum=False, zero=True):
 
 
 def get_intrinsic_scatter(observed_values, observed_errors, min_scatter=0, max_scatter=None):
-    """
-    Calculate the intrinsic scatter of a dataset given observed values and their errors.
+    """Calculate the intrinsic scatter of a dataset given observed values and their errors.
 
     This function estimates the intrinsic scatter by fitting a model that accounts for both
     observational errors and intrinsic scatter. The intrinsic scatter is constrained to be
@@ -2025,8 +2079,7 @@ def get_intrinsic_scatter(observed_values, observed_errors, min_scatter=0, max_s
         raise ValueError("observed_errors cannot contain negative values.")
 
     def log_likelihood(parameters, values, errors):
-        """
-        Compute the log-likelihood for the intrinsic scatter model.
+        """Compute the log-likelihood for the intrinsic scatter model.
 
         Args:
             parameters (tuple): A tuple containing the model parameters:
@@ -2092,63 +2145,100 @@ def match(
 ):
     """Low-level photometric matching routine.
 
-    It tries to build the photometric model for objects detected on the image that includes catalogue magnitude, positionally-dependent zero point, linear color term, optional additive flux term, and also takes into account possible intrinsic magnitude scatter on top of measurement errors.
+    This function builds the photometric model for objects detected in an image.
+    It includes catalogue magnitude, positionally-dependent zero point, a linear
+    color term, an optional additive flux term, and considers possible intrinsic
+    magnitude scatter on top of measurement errors.
 
-    :param obj_ra: Array of Right Ascension values for the objects
-    :param obj_dec: Array of Declination values for the objects
-    :param obj_mag: Array of instrumental magnitude values for the objects
-    :param obj_magerr: Array of instrumental magnitude errors for the objects
-    :param obj_flags: Array of flags for the objects
-    :param cat_ra: Array of catalogue Right Ascension values
-    :param cat_dec: Array of catalogue Declination values
-    :param cat_mag: Array of catalogue magnitudes
-    :param cat_magerr: Array of catalogue magnitude errors
-    :param cat_color: Array of catalogue color values, optional
-    :param sr: Matching radius, degrees
-    :param obj_x: Array of `x` coordinates of objects on the image, optional
-    :param obj_y: Array of `y` coordinates of objects on the image, optional
-    :param spatial_order: Order of zero point spatial polynomial (0 for constant).
-    :param bg_order: Order of additive flux term spatial polynomial (None to disable this term in the model)
-    :param threshold: Rejection threshold (relative to magnitude errors) for object-catalogue pair to be rejected from the fit
-    :param niter: Number of iterations for the fitting
-    :param accept_flags: Bitmask for acceptable object flags. Objects having any other
-    :param cat_saturation: Saturation level for the catalogue - stars brighter than this magnitude will be excluded from the fit
-    :param max_intrinsic_rms: Maximal intrinsic RMS to use during the fitting. If set to 0, no intrinsic scatter is included in the noise model.
-    :param sn: Minimal acceptable signal to noise ratio (1/obj_magerr) for the objects to be included in the fit
-    :param verbose: Whether to show verbose messages during the run of the function or not. May be either boolean, or a `print`-like function.
-    :param robust: Whether to use robust least squares fitting routine instead of weighted least squares
-    :param scale_noise: Whether to re-scale the noise model (object and catalogue magnitude errors) to match actual scatter of the data points or not. Intrinsic scatter term is not being scaled this way.
-    :param ecmag_thresh: set maximum photometri error to be considered for the photometric calibration (for both observed and catalogue magnitudes)
-    :param cmag_limits: set magnitude range for the catalog magnitudes to avoid weird values ([8,22] should work for most of the cases)
-    :param use_color: Whether to use catalogue color for deriving the color term.
-    :returns: The dictionary with photometric results, as described below.
+    Args:
+        obj_ra (ndarray): Array of Right Ascension values for the objects.
+        obj_dec (ndarray): Array of Declination values for the objects.
+        obj_mag (ndarray): Array of instrumental magnitude values for the objects.
+        obj_magerr (ndarray): Array of instrumental magnitude errors for the objects.
+        obj_flags (ndarray, optional): Array of flags for the objects.
+        cat_ra (ndarray): Array of catalogue Right Ascension values.
+        cat_dec (ndarray): Array of catalogue Declination values.
+        cat_mag (ndarray): Array of catalogue magnitudes.
+        cat_magerr (ndarray, optional): Array of catalogue magnitude errors.
+        cat_color (ndarray, optional): Array of catalogue color values.
+        sr (float): Matching radius in degrees.
+        obj_x (ndarray, optional): Array of `x` coordinates of objects on the image.
+        obj_y (ndarray, optional): Array of `y` coordinates of objects on the image.
+        spatial_order (int): Order of zero point spatial polynomial (0 for constant).
+        bg_order (int, optional): Order of additive flux term spatial polynomial
+            (None to disable this term in the model).
+        threshold (float, optional): Rejection threshold (relative to magnitude errors)
+            for object-catalogue pair rejection in the fit.
+        niter (int): Number of iterations for the fitting.
+        accept_flags (int): Bitmask for acceptable object flags. Objects with any
+            other flags are excluded.
+        cat_saturation (float, optional): Saturation level for the catalogue. Stars
+            brighter than this magnitude will be excluded from the fit.
+        max_intrinsic_rms (float): Maximum intrinsic RMS for fitting. If set to 0,
+            intrinsic scatter is not included in the noise model.
+        sn (float, optional): Minimum acceptable signal-to-noise ratio (1/obj_magerr)
+            for objects included in the fit.
+        verbose (bool or callable): Whether to show verbose messages. Can be a
+            boolean or a `print`-like function.
+        robust (bool): Whether to use robust least squares fitting instead of weighted
+            least squares.
+        scale_noise (bool): Whether to re-scale the noise model (object and catalogue
+            magnitude errors) to match actual data scatter.
+        ecmag_thresh (float, optional): Maximum photometric error threshold for
+            calibration (applies to both observed and catalogue magnitudes).
+        cmag_limits (tuple, optional): Magnitude range for catalogue magnitudes
+            (e.g., (8, 22) for reasonable photometry limits).
+        use_color (bool): Whether to use catalogue color in deriving the color term.
 
-    The results of photometric matching are returned in a dictionary with the following fields:
+    Returns:
+        dict: Dictionary containing the results of the photometric matching:
 
-    -  `oidx`, `cidx`, `dist` - indices of positionally matched objects and catalogue stars, as well as their pairwise distances in degrees
-    -  `omag`, `omagerr`, `cmag`, `cmagerr` - arrays of object instrumental magnitudes of matched objects, corresponding catalogue magnitudes, and their errors. Array lengths are equal to the number of positional matches.
-    -  `color` - catalogue colors corresponding to the matches, or zeros if no color term fitting is requested
-    -  `ox`, `oy`, `oflags` - coordinates of matched objects on the image, and their flags
-    -  `zero`, `zero_err` - empirical zero points (catalogue - instrumental magnitudes) for every matched object, as well as its errors, derived as a hypotenuse of their corresponding errors.
-    -  `zero_model`, `zero_model_err` - modeled "full" zero points (including color terms) for matched objects, and their corresponding errors from the fit
-    -  `color_term` - fitted color term. Instrumental photometric system is defined as :code:`obj_mag = cat_mag - color*color_term`
-    -  `zero_fn` - function to compute the zero point (without color term) at a given position and for a given instrumental magnitude of object, and optionally its error.
-    -  `obj_zero` - zero points for all input objects (not necessarily matched to the catalogue) computed through aforementioned function, i.e. without color term
-    -  `params` - Internal parameters of the fittting polynomial
-    -  `intrinsic_rms`, `error_scale` - fitted values of intrinsic scatter and noise scaling
-    -  `idx` - boolean index of matched objects/catalogue stars used in the final fit (i.e. not rejected during iterative thresholding, and passing initial quality cuts
-    -  `idx0` - the same but with just initial quality cuts taken into account
+        - `oidx` (ndarray): Indices of matched objects in the object list.
+        - `cidx` (ndarray): Indices of matched catalogue stars.
+        - `dist` (ndarray): Pairwise distances between matched objects and catalogue stars (in degrees).
+        - `omag` (ndarray): Instrumental magnitudes of matched objects.
+        - `omag_err` (ndarray): Errors of instrumental magnitudes.
+        - `cmag` (ndarray): Catalogue magnitudes of matched objects.
+        - `cmag_err` (ndarray): Errors of catalogue magnitudes.
+        - `color` (ndarray): Catalogue colors corresponding to the matches (zeros if no color term fitting).
+        - `ox` (ndarray): `x` coordinates of matched objects on the image.
+        - `oy` (ndarray): `y` coordinates of matched objects on the image.
+        - `oflags` (ndarray): Flags of matched objects.
+        - `zero` (ndarray): Empirical zero points (catalogue - instrumental magnitudes).
+        - `zero_err` (ndarray): Errors of the empirical zero points.
+        - `zero_model` (ndarray): Modeled zero points (including color terms) for matched objects.
+        - `zero_model_err` (ndarray): Errors of the modeled zero points.
+        - `color_term` (float or None): Fitted color term, where instrumental magnitude is defined as
+          `obj_mag = cat_mag - color * color_term`. None if color term is not used.
+        - `zero_fn` (callable): Function to compute the zero point (without color term) at a given
+          position and instrumental magnitude.
+        - `obj_zero` (ndarray): Zero points computed for all input objects (not necessarily matched to
+          the catalogue) using `zero_fn` (excluding the color term).
+        - `params` (ndarray): Internal parameters of the fitted polynomial.
+        - `intrinsic_rms` (float): Fitted value of intrinsic scatter.
+        - `error_scale` (float): Noise scaling factor.
+        - `idx` (ndarray): Boolean mask indicating objects/catalogue stars used in the final fit
+          (excluding rejected ones).
+        - `idx0` (ndarray): Boolean mask indicating objects/catalogue stars passing only initial
+          quality cuts.
 
-    Returned zero point computation function has the following signature:
+    `zero_fn` is a callable function with the signature:
 
-    :obj:`zero_fn(xx, yy, mag=None, get_err=False, add_intrinsic_rms=False)`
+        zero_fn(xx, yy, mag=None, get_err=False, add_intrinsic_rms=False)
 
-    where `xx` and `yy` are coordinates on the image, `mag` is object instrumental magnitude (needed to compute additive flux term). If :code:`get_err=True`, the function returns estimated zero point error instead of zero point, and `add_intrinsic_rms` controls whether this error estimation should also include intrinsic scatter term or not.
+    where:
+    - `xx`, `yy`: Image coordinates.
+    - `mag`: Instrumental magnitude of the object (needed for the additive flux term).
+    - `get_err`: If `True`, returns the estimated zero point error instead of zero point value.
+    - `add_intrinsic_rms`: If `True`, includes the intrinsic scatter term in the error estimation.
 
-    The zero point returned by this function does not include the contribution of color term. Therefore, in order to derive the final calibrated magnitude for the object, you will need to manually add the color contribution: :code:`mag_calibrated = mag_instrumental + color*color_term`, where `color` is a true object color, and `color_term` is reported in the photometric results.
+    The computed zero point from `zero_fn` does not include the contribution of the color term.
+    To derive the final calibrated magnitude:
 
+        mag_calibrated = mag_instrumental + color * color_term
+
+    where `color` is the object's true color, and `color_term` is the fitted color term in the output dictionary.
     """
-
     oidx, cidx, dist = spherical_match(obj_ra, obj_dec, cat_ra, cat_dec, sr)
 
     log.info(f"{len(dist)} initial matches between {len(obj_ra)} objects and {len(cat_ra)} "
@@ -2374,8 +2464,7 @@ def calibrate_photometry(
     verbose=False,
     **kwargs
 ):
-    """
-    Higher-level photometric calibration routine.
+    """Higher-level photometric calibration routine.
 
     This function wraps the `stdpipe.photometry.match` routine with convenient defaults for typical tabular data.
     It performs photometric calibration by matching objects in the object table to stars in the reference catalog.
@@ -2479,8 +2568,7 @@ def calibrate_photometry(
 
 
 def convert_match_results_to_table(match_results, pixscale=None, columns=None):
-    """
-    Convert dict returned by calibrate_photometry() to an astropy Table.
+    """Convert dict returned by calibrate_photometry() to an astropy Table.
 
     Resulting table includes:
         - `oidx`, `cidx`, `dist`: indices of positionally matched objects and catalogue stars, and pairwise distances in degrees.
@@ -2541,8 +2629,7 @@ def convert_match_results_to_table(match_results, pixscale=None, columns=None):
 
 
 def get_photometric_zeropoint(match_results, use_model=False):
-    """
-    Calculate the median photometric zero point from calibration results.
+    """Calculate the median photometric zero point from calibration results.
 
     Args:
         match_results (dict): Output from calibrate_photometry().
