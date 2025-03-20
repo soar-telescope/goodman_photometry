@@ -32,7 +32,7 @@ __version__ = version('goodman_photometry')
 
 
 def setup_logging(debug=False, generic=False, log_filename='goodman_photometry_log.txt'):  # pragma: no cover
-    """Configures logging for the application.
+    """Configure logging for the application.
 
     This function sets up logging with a specified format and logging level. If debugging is enabled,
     the log format includes additional details such as the module, function name, and line number.
@@ -88,7 +88,7 @@ def setup_logging(debug=False, generic=False, log_filename='goodman_photometry_l
 
 
 def get_astrometry_args(arguments=None):
-    """Parses command-line arguments for astrometry solution processing.
+    """Parse command-line arguments for astrometry solution processing.
 
     This function defines and processes command-line arguments required
     for performing an astrometry solution using the Goodman High Throughput Spectrograph data.
@@ -180,7 +180,7 @@ def get_astrometry_args(arguments=None):
 
 
 def get_photometry_args(arguments=None):
-    """Parses command-line arguments for Goodman photometry processing.
+    """Parse command-line arguments for Goodman photometry processing.
 
     This function defines and processes command-line arguments required
     for photometry analysis using the Goodman High Throughput Spectrograph data.

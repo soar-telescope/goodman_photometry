@@ -118,7 +118,7 @@ CATALOGS = {
 
 
 def extract_observation_metadata(header):
-    """Extracts observation metadata from a FITS header and ensures the wavelength mode is IMAGING.
+    """Extract observation metadata from a FITS header and ensure the wavelength mode is IMAGING.
 
     Args:
         header (astropy.io.fits.Header): The FITS header containing observation metadata.
@@ -403,7 +403,7 @@ def mask_field_of_view(image, binning):
 
 
 def create_bad_pixel_mask(image, saturation_threshold, binning):
-    """Creates a comprehensive bad pixel mask.
+    """Create a comprehensive bad pixel mask.
 
     Creates a comprehensive bad pixel mask, identifying and masking saturated pixels, cosmic rays,
     and pixels outside the circular field of view (FOV) of Goodman images.
@@ -576,38 +576,40 @@ def get_objects_sextractor(
         _tmpdir=None,
         _exe=None,
         verbose=False):
-    """Thin wrapper around SExtractor binary.
+    """Extract objects from an image using SExtractor.
 
-    It processes the image taking into account optional mask and noise map, and returns the list of detected objects and optionally a set of SExtractor-produced checkimages.
+    This function is a thin wrapper around the SExtractor binary. It processes the image, taking into account optional mask and noise map, and returns a list of detected objects. Optionally, it can also return SExtractor-produced checkimages.
 
-    You may check the SExtractor documentation at https://sextractor.readthedocs.io/en/latest/ for more details about possible parameters and general principles of its operation.
-    E.g. detection flags (returned in `flags` column of results table) are documented at https://sextractor.readthedocs.io/en/latest/Flagging.html#extraction-flags-flags . In addition to these flags, any object having pixels masked by the input `mask` in its footprint will have :code:`0x100` flag set.
+    For more details about SExtractor parameters and principles of operation, refer to the SExtractor documentation at https://sextractor.readthedocs.io/en/latest/. Detection flags (returned in the `flags` column of the results table) are documented at https://sextractor.readthedocs.io/en/latest/Flagging.html#extraction-flags-flags. Additionally, any object with pixels masked by the input `mask` in its footprint will have the `0x100` flag set.
 
-    :param image: Input image as a NumPy array
-    :param header: Image header, optional
-    :param mask: Image mask as a boolean array (True values will be masked), optional
-    :param err: Image noise map as a NumPy array, optional
-    :param thresh: Detection threshold, in sigmas above local background, to be used for `DETECT_THRESH` parameter of SExtractor call
-    :param aper: Circular aperture radius in pixels, to be used for flux measurement. May also be list - then flux will be measured for all apertures from that list.
-    :param r0: Smoothing kernel size (sigma, or FWHM/2.355) to be used for improving object detection
-    :param gain: Image gain, e/ADU
-    :param edge: Reject all detected objects closer to image edge than this parameter
-    :param minarea: Minimal number of pixels in the object to be considered a detection (`DETECT_MINAREA` parameter of SExtractor)
-    :param wcs: Astrometric solution to be used for assigning sky coordinates (`ra`/`dec`) to detected objects
-    :param sn: Minimal S/N ratio for the object to be considered a detection
-    :param bg_size: Background grid size in pixels (`BACK_SIZE` SExtractor parameter)
-    :param sort: Whether to sort the detections in decreasing brightness or not
-    :param reject_negative: Whether to reject the detections with negative fluxes
-    :param checkimages: List of SExtractor checkimages to return along with detected objects. Any SExtractor checkimage type may be used here (e.g. `BACKGROUND`, `BACKGROUND_RMS`, `MINIBACKGROUND`,  `MINIBACK_RMS`, `-BACKGROUND`, `FILTERED`, `OBJECTS`, `-OBJECTS`, `SEGMENTATION`, `APERTURES`). Optional.
-    :param extra_params: List of extra object parameters to return for the detection. See :code:`sex -dp` for the full list.
-    :param extra: Dictionary of extra configuration parameters to be passed to SExtractor call, with keys as parameter names. See :code:`sex -dd` for the full list.
-    :param psf: Path to PSFEx-made PSF model file to be used for PSF photometry. If provided, a set of PSF-measured parameters (`FLUX_PSF`, `MAG_PSF` etc) are added to detected objects. Optional
-    :param catfile: If provided, output SExtractor catalogue file will be copied to this location, to be reused by external codes. Optional.
-    :param _workdir: If specified, all temporary files will be created in this directory, and will be kept intact after running SExtractor. May be used for debugging exact inputs and outputs of the executable. Optional
-    :param _tmpdir: If specified, all temporary files will be created in a dedicated directory (that will be deleted after running the executable) inside this path.
-    :param _exe: Full path to SExtractor executable. If not provided, the code tries to locate it automatically in your :envvar:`PATH`.
-    :param verbose: Whether to show verbose messages during the run of the function or not. Maybe either boolean, or a `print`-like function.
-    :returns: Either the astropy.table.Table object with detected objects, or a list with table of objects (first element) and checkimages (consecutive elements), if checkimages are requested.
+    Args:
+        image (numpy.ndarray): Input image as a NumPy array.
+        header (astropy.io.fits.Header, optional): Image header.
+        mask (numpy.ndarray, optional): Image mask as a boolean array (True values will be masked).
+        err (numpy.ndarray, optional): Image noise map as a NumPy array.
+        thresh (float, optional): Detection threshold in sigmas above local background. Used for `DETECT_THRESH` parameter. Default is 2.0.
+        aper (float or list, optional): Circular aperture radius in pixels for flux measurement. If a list is provided, flux is measured for all apertures. Default is 3.0.
+        r0 (float, optional): Smoothing kernel size (sigma, or FWHM/2.355) for improving object detection. Default is 0.0.
+        gain (float, optional): Image gain in e/ADU. Default is 1.
+        edge (int, optional): Reject objects closer to the image edge than this value. Default is 0.
+        minarea (int, optional): Minimum number of pixels for an object to be considered a detection (`DETECT_MINAREA`). Default is 5.
+        wcs (astropy.wcs.WCS, optional): Astrometric solution for assigning sky coordinates (`ra`/`dec`) to detected objects.
+        sn (float, optional): Minimum S/N ratio for an object to be considered a detection. Default is 3.0.
+        bg_size (int, optional): Background grid size in pixels (`BACK_SIZE`). Default is None.
+        sort (bool, optional): Whether to sort detections by decreasing brightness. Default is True.
+        reject_negative (bool, optional): Whether to reject detections with negative fluxes. Default is True.
+        checkimages (list, optional): List of SExtractor checkimages to return. Default is [].
+        extra_params (list, optional): List of extra object parameters to return. Default is [].
+        extra (dict, optional): Dictionary of extra configuration parameters for SExtractor. Default is {}.
+        psf (str, optional): Path to PSFEx-made PSF model file for PSF photometry. Default is None.
+        catfile (str, optional): Path to save the output SExtractor catalog. Default is None.
+        _workdir (str, optional): Directory for temporary files. If specified, files are not deleted. Default is None.
+        _tmpdir (str, optional): Directory for temporary files. Files are deleted after execution. Default is None.
+        _exe (str, optional): Path to SExtractor executable. If not provided, the function searches for it in the system PATH. Default is None.
+        verbose (bool or callable, optional): Whether to show verbose messages. Can be a boolean or a `print`-like function. Default is False.
+
+    Returns:
+        astropy.table.Table or list: Table of detected objects. If checkimages are requested, returns a list with the table as the first element and checkimages as subsequent elements.
     """
     # Find the binary
     binname = None
@@ -1113,7 +1115,7 @@ def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
                x_points=None, y_points=None, use_wcs_for_points=False,
                point_marker='r.', point_size=2, title=None, figsize=None,
                show_grid=False, output_file=None, dpi=300):
-    """Plots a 2D image with optional WCS projection, color scaling, and overlay points.
+    """Plot a 2D image with optional WCS projection, color scaling, and overlay points.
 
     Args:
         image (numpy.ndarray): The 2D array representing the image data to be plotted.
@@ -1635,7 +1637,7 @@ def get_vizier_catalog(
 
 
 def table_to_ldac(table, header=None, writeto=None):
-    """Converts an Astropy Table to an LDAC-style FITS HDU list.
+    """Convert an Astropy Table to an LDAC-style FITS HDU list.
 
     Args:
         table (astropy.table.Table): The data table to convert.
@@ -1674,7 +1676,7 @@ def table_to_ldac(table, header=None, writeto=None):
 
 
 def get_pixel_scale(wcs=None, filename=None, header=None):
-    """Returns the pixel scale of an image in degrees per pixel.
+    """Return the pixel scale of an image in degrees per pixel.
 
     This function calculates the pixel scale from a WCS object, FITS header, or a FITS file.
 
@@ -1726,30 +1728,35 @@ def refine_wcs_scamp(
     _exe=None,
     verbose=False,
 ):
-    """Wrapper for running SCAMP on user-provided object list and catalogue to get refined astrometric solution.
+    """Refine the WCS solution using SCAMP.
 
-    :param obj: List of objects on the frame that should contain at least `x`, `y` and `flux` columns.
-    :param cat: Reference astrometric catalogue
-    :param wcs: Initial WCS
-    :param header: FITS header containing initial astrometric solution, optional.
-    :param sr: Matching radius in degrees
-    :param order: Polynomial order for PV distortion solution (1 or greater)
-    :param cat_col_ra: Catalogue column name for Right Ascension
-    :param cat_col_dec: Catalogue column name for Declination
-    :param cat_col_ra_err: Catalogue column name for Right Ascension error
-    :param cat_col_dec_err: Catalogue column name for Declination error
-    :param cat_col_mag: Catalogue column name for the magnitude in closest band
-    :param cat_col_mag_err: Catalogue column name for the magnitude error
-    :param cat_mag_lim: Magnitude limit for catalogue stars
-    :param sn: If provided, only objects with signal to noise ratio exceeding this value will be used for matching.
-    :param extra: Dictionary of additional parameters to be passed to SCAMP binary, optional.
-    :param get_header: If True, function will return the FITS header object instead of WCS solution
-    :param update: If set, the object list will be updated in-place to contain correct `ra` and `dec` sky coordinates
-    :param _workdir: If specified, all temporary files will be created in this directory, and will be kept intact after running SCAMP. May be used for debugging exact inputs and outputs of the executable. Optional
-    :param _tmpdir: If specified, all temporary files will be created in a dedicated directory (that will be deleted after running the executable) inside this path.
-    :param _exe: Full path to SCAMP executable. If not provided, the code tries to locate it automatically in your :envvar:`PATH`.
-    :param verbose: Whether to show verbose messages during the run of the function or not. Maybe either boolean, or a `print`-like function.
-    :returns: Refined astrometric solution, or FITS header if :code:`get_header=True`
+    This function is a wrapper for running SCAMP on a user-provided object list and reference catalog to refine the astrometric solution. It matches objects in the frame with a reference catalog and computes a refined WCS solution.
+
+    Args:
+        obj (astropy.table.Table): List of objects on the frame, containing at least `x`, `y`, and `flux` columns.
+        cat (astropy.table.Table or str, optional): Reference astrometric catalog or name of a network catalog. Default is None.
+        wcs (astropy.wcs.WCS, optional): Initial WCS solution. Default is None.
+        header (astropy.io.fits.Header, optional): FITS header containing the initial astrometric solution. Default is None.
+        sr (float, optional): Matching radius in degrees. Default is 2/3600.
+        order (int, optional): Polynomial order for PV distortion solution (1 or greater). Default is 3.
+        cat_col_ra (str, optional): Catalog column name for Right Ascension. Default is 'RAJ2000'.
+        cat_col_dec (str, optional): Catalog column name for Declination. Default is 'DEJ2000'.
+        cat_col_ra_err (str, optional): Catalog column name for Right Ascension error. Default is 'e_RAJ2000'.
+        cat_col_dec_err (str, optional): Catalog column name for Declination error. Default is 'e_DEJ2000'.
+        cat_col_mag (str, optional): Catalog column name for the magnitude in the closest band. Default is 'rmag'.
+        cat_col_mag_err (str, optional): Catalog column name for the magnitude error. Default is 'e_rmag'.
+        cat_mag_lim (float or list, optional): Magnitude limit for catalog stars. If a list, treated as lower and upper limits. Default is 99.
+        sn (float or list, optional): Signal-to-noise ratio threshold for object matching. If a list, treated as lower and upper limits. Default is None.
+        extra (dict, optional): Dictionary of additional parameters to pass to SCAMP. Default is {}.
+        get_header (bool, optional): If True, return the FITS header instead of the WCS solution. Default is False.
+        update (bool, optional): If True, update the object list in-place with refined `ra` and `dec` coordinates. Default is False.
+        _workdir (str, optional): Directory for temporary files. If specified, files are not deleted. Default is None.
+        _tmpdir (str, optional): Directory for temporary files. Files are deleted after execution. Default is None.
+        _exe (str, optional): Path to SCAMP executable. If not provided, the function searches for it in the system PATH. Default is None.
+        verbose (bool or callable, optional): Whether to show verbose messages. Can be a boolean or a `print`-like function. Default is False.
+
+    Returns:
+        astropy.wcs.WCS or astropy.io.fits.Header: Refined WCS solution or FITS header if `get_header=True`. Returns None if the refinement fails.
     """
     # Find the binary
     binname = None
@@ -1977,7 +1984,7 @@ def clear_wcs(
     remove_underscored=False,
     copy=False,
 ):
-    """Clears WCS-related keywords from a FITS header.
+    """Clear WCS-related keywords from a FITS header.
 
     Args:
         header (astropy.io.fits.Header): Header to operate on.
