@@ -195,6 +195,8 @@ class Astrometry(object):
 
         self.__detect_sources_with_sextractor()
 
+        self.__data_quality_assessment()
+
         self.__obtain_astrometric_solution_with_scamp()
 
         self.__update_header()
