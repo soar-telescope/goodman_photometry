@@ -77,8 +77,6 @@ def setup_logging(debug=False, generic=False, log_filename='goodman_photometry_l
     file_handler.setLevel(level=logging_level)
     log.addHandler(file_handler)
 
-    print(logging_level)
-
     # if not generic:
     #     log.info("Starting Goodman HTS Pipeline Log")
     #     log.info("Local Time    : {:}".format(
@@ -134,7 +132,7 @@ def get_astrometry_args(arguments=None):
         help='Catalog name')
     parser.add_argument(
         '--magnitude-threshold',
-        default=12,
+        default=17,
         type=float,
         action='store',
         dest='magnitude_threshold',
