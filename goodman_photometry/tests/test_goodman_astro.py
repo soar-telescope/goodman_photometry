@@ -300,7 +300,6 @@ class TestGetVizierCatalog(unittest.TestCase):
     @patch('astroquery.vizier.core.VizierClass.query_region')
     def test_get_vizier_catalog(self, mock_query_region):
         """Test the get_vizier_catalog function with precise mocking of query_region."""
-
         # Mock Vizier response
         mock_table = Table(
             {

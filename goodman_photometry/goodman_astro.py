@@ -44,7 +44,7 @@ import sip_tpv
 from astropy import units as u
 from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.io import fits as fits
-from astropy.io.fits import table_to_hdu, Header
+from astropy.io.fits import Header
 from astropy.table import Table
 from astropy.time import Time
 from astropy.visualization import simple_norm
