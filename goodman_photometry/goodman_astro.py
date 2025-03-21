@@ -1652,19 +1652,18 @@ def table_to_ldac(table, header=None, writeto=None):
     """
     primary_hdu = fits.PrimaryHDU()
 
-    # Ensure header is valid
-    if header is None:
-        header = fits.Header()
-
     header_str = header.tostring(endcard=True)
-    # Preserve the final 'END' keyword for SCAMP compatibility
+    # FIXME: this is a quick and dirty hack to preserve final 'END     ' in the string
+    # as astropy.io.fits tends to strip trailing whitespaces from string data, and it breaks at least SCAMP
     header_str += fits.Header().tostring(endcard=True)
 
-    header_col = fits.Column(name='Field Header Card', format='80A', array=[header_str])
-    header_hdu = fits.BinTableHDU.from_columns([header_col])
+    header_col = fits.Column(
+        name='Field Header Card', format='%dA' % len(header_str), array=[header_str]
+    )
+    header_hdu = fits.BinTableHDU.from_columns(fits.ColDefs([header_col]))
     header_hdu.header['EXTNAME'] = 'LDAC_IMHEAD'
 
-    data_hdu = table_to_hdu(table)
+    data_hdu = fits.table_to_hdu(table)
     data_hdu.header['EXTNAME'] = 'LDAC_OBJECTS'
 
     hdulist = fits.HDUList([primary_hdu, header_hdu, data_hdu])
