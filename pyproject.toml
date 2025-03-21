@@ -7,7 +7,7 @@ name = "goodman_photometry"
 dynamic = ["version"]
 description = "Pipeline for reducing Goodman HTS data."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 keywords = [
   "soar",
@@ -22,7 +22,8 @@ authors = [
   {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "},
 ]
 maintainers = [
-  {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "}
+  {name = "Felipe Navarete", email = "felipe.navarete@noirlab.edu "},
+  {name = "Simón Torres", email = "simon.torres@noirlab.edu "}
 ]
 
 classifiers = [
@@ -58,14 +59,16 @@ dependencies = [
   "requests",
   "scipy",
   "statsmodels",
-  "astroquery"
+  "astroquery",
+  "sip_tpv",
+  "setuptools"
 
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/navarete/goodman_photometry"
-"Bug Reports" = "https://github.com/navarete/goodman_photometry/issues"
-"Source" = "https://github.com/navarete/goodman_photometry"
+"Homepage" = "https://github.com/soar-telescope/goodman_photometry"
+"Bug Reports" = "https://github.com/soar-telescope/goodman_photometry/issues"
+"Source" = "https://github.com/soar-telescope/goodman_photometry"
 
 [project.scripts]
 redastrometry = "goodman_photometry.astrometry:goodman_astrometry"
@@ -74,7 +77,6 @@ redphotometry = "goodman_photometry.photometry:goodman_photometry"
 
 [tool.setuptools]
 packages = ["goodman_photometry"]
-
 
 
 [tool.setuptools_scm]
