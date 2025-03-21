@@ -463,7 +463,7 @@ class Photometry(object):
             pixel_scale=self.pixel_scale,
             error_threshold=self.magnitude_error_threshold,
             magnitude_limits=self.magnitude_range,
-            object_mag_column=photometry_filter,
+            catalog_mag_column=catalog_filter,
             catalog_mag1_column=None,
             catalog_mag2_column=None,
             spatial_order=0,
@@ -501,8 +501,8 @@ class Photometry(object):
                      phot_table=sources_table,
                      wcs=wcs,
                      column_scale='mag_calib',
-                     qq=(0.02, 0.98),
-                     output=calibrated_detections_plot_filename,
+                     quantiles=(0.02, 0.98),
+                     output_file=calibrated_detections_plot_filename,
                      dpi=self.plot_file_resolution)
         self.log.info(f"Photometric calibrated detections plotted over the image with WCS solution as "
                       f"{calibrated_detections_plot_filename}")
@@ -510,24 +510,24 @@ class Photometry(object):
         plot_bins = np.round(2. * (fov_radius * 3600.) / 60.0)
 
         plt.figure()
-        plot_photometric_match(m=magnitudes, mode='dist', bins=plot_bins)
+        plot_photometric_match(match_result=magnitudes, mode='dist', bins=plot_bins)
         plt.tight_layout()
         if self.save_plots:
             plt.savefig(self.filename.replace(".fits", "_phot_photmatch.png"))
 
         plt.figure()
-        plot_photometric_match(m=magnitudes)
+        plot_photometric_match(match_result=magnitudes)
         plt.tight_layout()
         if self.save_plots:
             plt.savefig(self.filename.replace(".fits", "_phot_photmatch2.png"))
 
         plt.figure()
-        plot_photometric_match(m=magnitudes,
+        plot_photometric_match(match_result=magnitudes,
                                mode='zero',
                                bins=plot_bins,
                                # Whether to show positions of the stars
-                               show_dots=True,
-                               color='red',
+                               show_points=True,
+                               point_color='red',
                                aspect='equal')
         plt.title('Zero point')
         plt.tight_layout()
