@@ -1,6 +1,7 @@
 # Goodman Photometry
 
 [![Build Status](https://github.com/soar-telescope/goodman_photometry/actions/workflows/python-publish.yml/badge.svg)](https://github.com/soar-telescope/goodman_photometry/actions/workflows/python-publish.yml)
+[![codecov](https://codecov.io/gh/soar-telescope/goodman_photometry/graph/badge.svg?token=wO5r3IRIHT)](https://codecov.io/gh/soar-telescope/goodman_photometry)
 [![PyPI Version](https://img.shields.io/pypi/v/goodman-photometry.svg?style=flat)](https://pypi.org/project/goodman-photometry/)
 [![License](https://img.shields.io/pypi/l/goodman-photometry.svg)](https://pypi.org/project/goodman-photometry/)
 
