@@ -1322,8 +1322,7 @@ def plot_photometric_match(
             - `color` (ndarray, optional): Catalogue colors of matched objects.
             - `ox`, `oy` (ndarray): `x` and `y` coordinates of objects on the image.
             - `dist` (ndarray): Pairwise distances between matched objects and catalogue stars (in degrees).
-            - `cat_col_mag`, `cat_col_mag1`, `cat_col_mag2` (str, optional):
-              Names of the catalogue magnitudes and colors.
+            - `cat_col_mag`, `cat_col_mag1`, `cat_col_mag2` (str, optional): Names of the catalogue magnitudes and colors.
             - `color_term` (float, optional): Fitted color term for magnitude transformation.
 
         ax (matplotlib.axes.Axes, optional): The matplotlib axis to plot on. If None,
@@ -2472,7 +2471,7 @@ def calibrate_photometry(
 ):
     """Higher-level photometric calibration routine.
 
-    This function wraps the `stdpipe.photometry.match` routine with convenient defaults for typical tabular data.
+    This function wraps the `goodman_photometry.goodman_astro.match` routine with convenient defaults for typical tabular data.
     It performs photometric calibration by matching objects in the object table to stars in the reference catalog.
 
     Args:
@@ -2499,10 +2498,10 @@ def calibrate_photometry(
         magnitude_limits (list, optional): Magnitude range for catalog magnitudes to avoid outliers (e.g., [8, 22]). Default is None.
         update_results (bool, optional): If True, adds `mag_calib` and `mag_calib_err` columns to the object table. Default is True.
         verbose (bool or callable, optional): Whether to show verbose messages during execution. Default is False.
-        **kwargs: Additional keyword arguments passed to `stdpipe.photometry.match`.
+        **kwargs: Additional keyword arguments passed to `goodman_photometry.goodman_astro.match`.
 
     Returns:
-        dict: A dictionary containing photometric calibration results, as returned by `stdpipe.photometry.match`.
+        dict: A dictionary containing photometric calibration results, as returned by `goodman_photometry.goodman_astro.match`.
     """
     # Calculate search radius if not provided
     if search_radius is None:

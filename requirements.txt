@@ -1,7 +1,10 @@
-numpy
-matplotlib
 astropy
-astroscrappy
-statsmodels
 astroquery
+astroscrappy
+matplotlib
+numpy
+pydata-sphinx-theme
 sip_tpv
+sphinx
+sphinxcontrib.napoleon
+statsmodels
