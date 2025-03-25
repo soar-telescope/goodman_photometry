@@ -17,7 +17,7 @@ Welcome to Goodman Photometry's documentation!
 
 Routines to perform automatic astrometry and photometry of Goodman imaging observations.
 
-The codes were initially based on STDPipe_ and adapted for Goodman HST.
+The codes were initially based on `STDPipe <https://github.com/karpov-sv/stdpipe>`_ and adapted for Goodman HST.
 
 Features
 --------
