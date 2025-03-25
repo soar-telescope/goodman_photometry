@@ -8,6 +8,8 @@ Welcome to Goodman Photometry's documentation!
 
 .. image:: https://github.com/soar-telescope/goodman_photometry/actions/workflows/python-publish.yml/badge.svg
    :target: https://github.com/soar-telescope/goodman_photometry/actions/workflows/python-publish.yml
+.. image:: https://codecov.io/gh/soar-telescope/goodman_photometry/graph/badge.svg?token=wO5r3IRIHT 
+   :target: https://codecov.io/gh/soar-telescope/goodman_photometry
 .. image:: https://img.shields.io/pypi/v/goodman-photometry.svg?style=flat
    :target: https://pypi.org/project/goodman-photometry/
 .. image:: https://img.shields.io/pypi/l/goodman-photometry.svg
