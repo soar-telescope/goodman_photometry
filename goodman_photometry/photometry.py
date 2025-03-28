@@ -30,6 +30,7 @@ Version:
 """
 import datetime
 import logging
+import os.path
 import warnings
 
 import matplotlib.pyplot as plt
@@ -107,6 +108,7 @@ class Photometry(object):
                  color_map='Blues_r',
                  plot_file_resolution=600,
                  save_plots=False,
+                 reduced_data_path=None,
                  debug=False) -> None:
         """Initialize the Photometry class.
 
@@ -148,6 +150,7 @@ class Photometry(object):
         self.filename = None
         self.output_filename = None
         self.save_plots = save_plots
+        self.reduced_data_path = reduced_data_path
         self.debug = debug
         self.catalog_name = catalog_name
         self.magnitude_threshold = magnitude_threshold
@@ -198,6 +201,9 @@ class Photometry(object):
             >>> processor("observation.fits")
         """
         self.filename = filename
+
+        if self.reduced_data_path is None or not os.path.isdir(self.reduced_data_path):
+            self.reduced_data_path = os.path.dirname(self.filename)
 
         self.start = datetime.datetime.now()
         data = fits.getdata(self.filename).astype(np.double)
@@ -257,12 +263,14 @@ class Photometry(object):
 
         self.data_quality_assessment(data=data)
 
-        self.do_photometry(data=data,
-                           header=header,
-                           wcs=wcs,
-                           center_ra=center_ra,
-                           center_dec=center_dec,
-                           fov_radius=fov_radius)
+        output_file, elapsed_time = self.do_photometry(data=data,
+                                                       header=header,
+                                                       wcs=wcs,
+                                                       center_ra=center_ra,
+                                                       center_dec=center_dec,
+                                                       fov_radius=fov_radius)
+
+        return {"output_file": output_file, "elapsed_time": elapsed_time}
 
     @property
     def dq(self):
@@ -598,10 +606,11 @@ class Photometry(object):
 
         hdu = fits.PrimaryHDU(data=data, header=header_out)
         hdul = fits.HDUList([hdu])
-        photometry_filename = self.filename.replace(".fits", "_phot.fits")
-        hdul.writeto(photometry_filename, overwrite=True)
+        new_filename = os.path.basename(self.filename.replace(".fits", "_phot.fits"))
+        output_file = os.path.join(self.reduced_data_path, new_filename)
+        hdul.writeto(output_file, overwrite=True)
 
-        self.log.info(f"FITS file saved as {photometry_filename}")
+        self.log.info(f"FITS file saved as {output_file}")
 
         # set start of the code
         end = datetime.datetime.now()
@@ -614,6 +623,10 @@ class Photometry(object):
         print("")
         print("Photometric calibration was applied.")
         print("")
+
+        return output_file, elapsed_time
+
+
 
 
 def goodman_photometry():
