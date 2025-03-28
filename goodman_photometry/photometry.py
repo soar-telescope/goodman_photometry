@@ -168,52 +168,7 @@ class Photometry(object):
             "ellipticity_error": 0.0
         }
 
-    @property
-    def dq(self):
-        """Get the data quality assessment results.
 
-        This property provides access to the data quality assessment results, which include:
-        - FWHM (Full Width at Half Maximum) of detected sources.
-        - FWHM error.
-        - Ellipticity of detected sources.
-        - Ellipticity error.
-
-        Returns:
-            dict: A dictionary containing the data quality metrics. The keys are:
-                - 'fwhm': The median FWHM of detected sources.
-                - 'fwhm_error': The uncertainty in the FWHM measurement.
-                - 'ellipticity': The median ellipticity of detected sources.
-                - 'ellipticity_error': The uncertainty in the ellipticity measurement.
-        """
-        return self._data_quality
-
-    @dq.setter
-    def dq(self, results):
-        """Set the data quality assessment results.
-
-        This setter updates the data quality assessment results. It ensures that only valid
-        float values are assigned to the respective keys in the `_data_quality` dictionary.
-
-        Args:
-            results (tuple): A tuple containing the following values in order:
-                - fwhm (float): The median FWHM of detected sources.
-                - fwhm_error (float): The uncertainty in the FWHM measurement.
-                - ellipticity (float): The median ellipticity of detected sources.
-                - ellipticity_error (float): The uncertainty in the ellipticity measurement.
-
-        Notes:
-            - Only float values are accepted for updating the data quality metrics.
-            - If any value in the tuple is not a float, it is ignored.
-        """
-        fwhm, fwhm_error, ellipticity, ellipticity_error = results
-        if isinstance(fwhm, float):
-            self._data_quality["fwhm"] = fwhm
-        if isinstance(fwhm_error, float):
-            self._data_quality["fwhm_error"] = fwhm_error
-        if isinstance(ellipticity, float):
-            self._data_quality["ellipticity"] = ellipticity
-        if isinstance(ellipticity_error, float):
-            self._data_quality["ellipticity_error"] = ellipticity_error
 
     def __call__(self, filename) -> None:
         """Process a FITS file for photometric calibration.
@@ -308,6 +263,53 @@ class Photometry(object):
                            center_ra=center_ra,
                            center_dec=center_dec,
                            fov_radius=fov_radius)
+
+    @property
+    def dq(self):
+        """Get the data quality assessment results.
+
+        This property provides access to the data quality assessment results, which include:
+        - FWHM (Full Width at Half Maximum) of detected sources.
+        - FWHM error.
+        - Ellipticity of detected sources.
+        - Ellipticity error.
+
+        Returns:
+            dict: A dictionary containing the data quality metrics. The keys are:
+                - 'fwhm': The median FWHM of detected sources.
+                - 'fwhm_error': The uncertainty in the FWHM measurement.
+                - 'ellipticity': The median ellipticity of detected sources.
+                - 'ellipticity_error': The uncertainty in the ellipticity measurement.
+        """
+        return self._data_quality
+
+    @dq.setter
+    def dq(self, results):
+        """Set the data quality assessment results.
+
+        This setter updates the data quality assessment results. It ensures that only valid
+        float values are assigned to the respective keys in the `_data_quality` dictionary.
+
+        Args:
+            results (tuple): A tuple containing the following values in order:
+                - fwhm (float): The median FWHM of detected sources.
+                - fwhm_error (float): The uncertainty in the FWHM measurement.
+                - ellipticity (float): The median ellipticity of detected sources.
+                - ellipticity_error (float): The uncertainty in the ellipticity measurement.
+
+        Notes:
+            - Only float values are accepted for updating the data quality metrics.
+            - If any value in the tuple is not a float, it is ignored.
+        """
+        fwhm, fwhm_error, ellipticity, ellipticity_error = results
+        if isinstance(fwhm, float):
+            self._data_quality["fwhm"] = fwhm
+        if isinstance(fwhm_error, float):
+            self._data_quality["fwhm_error"] = fwhm_error
+        if isinstance(ellipticity, float):
+            self._data_quality["ellipticity"] = ellipticity
+        if isinstance(ellipticity_error, float):
+            self._data_quality["ellipticity_error"] = ellipticity_error
 
     def run_sextractor(self, data, mask, gain, pixel_scale, wcs, seeing=1):
         """Run SExtractor to detect sources in the image.
