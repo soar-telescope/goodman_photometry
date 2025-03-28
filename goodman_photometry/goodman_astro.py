@@ -1772,7 +1772,7 @@ def refine_wcs_scamp(
 
     if binname is None:
         log.critical("Can't find SCAMP binary")
-        return None
+        raise OSError("Can\'t find SCAMP binary")
     # else:
     #     log.info("Using SCAMP binary at", binname)
 
