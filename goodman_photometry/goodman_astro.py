@@ -142,7 +142,7 @@ def extract_observation_metadata(header):
     # Ensure observations are in IMAGING mode; exit if not.
     wavelength_mode = header.get('WAVMODE')
     if wavelength_mode != 'IMAGING':
-        sys.exit("Error: WAVMODE is not IMAGING. No data to process.")
+        raise ValueError("Error: WAVMODE is not IMAGING. No data to process.")
 
     # Determine the active filter name, considering both filter wheels.
     primary_filter = header.get('FILTER')
@@ -657,7 +657,7 @@ def get_objects_sextractor(
                 break
     if binname is None:
         log.critical("Can't find SExtractor binary")
-        sys.exit("Can't find SExtractor binary")
+        raise SystemError("Can't find SExtractor binary")
     # else:
     #     log.info("Using SExtractor binary at", binname)
 

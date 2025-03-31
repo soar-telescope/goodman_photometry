@@ -54,8 +54,7 @@ from ..goodman_astro import (
 
 class TestExtractObservationMetadata(unittest.TestCase):
 
-    @patch("goodman_photometry.goodman_astro.sys.exit")
-    def test_invalid_wavelength_mode(self, mock_exit):
+    def test_invalid_wavelength_mode(self):
         """
         Test that the function exits when WAVMODE is not 'IMAGING'.
         """
@@ -69,11 +68,8 @@ class TestExtractObservationMetadata(unittest.TestCase):
         header['RDNOISE'] = 5.0
         header['EXPTIME'] = 100.0
 
-        # Call the function with the mock header
-        extract_observation_metadata(header)
-
-        # Assert sys.exit was called
-        mock_exit.assert_called_with("Error: WAVMODE is not IMAGING. No data to process.")
+        self.assertRaises(ValueError, extract_observation_metadata, header)
+        self.assertRaisesRegex(ValueError, "Error: WAVMODE is not IMAGING. No data to process.", extract_observation_metadata, header)
 
     @patch('goodman_photometry.goodman_astro.get_observation_time', return_value='2025-01-01T00:00:00')
     @patch('goodman_photometry.goodman_astro.calculate_saturation_threshold', return_value=50000)
