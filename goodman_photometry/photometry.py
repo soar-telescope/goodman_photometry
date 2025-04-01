@@ -32,7 +32,7 @@ import datetime
 import logging
 import os.path
 import warnings
-
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
@@ -52,9 +52,10 @@ from .goodman_astro import (create_bad_pixel_mask,
                             get_objects_sextractor,
                             get_photometric_zeropoint,
                             get_pixel_scale,
+                            plot_image,
                             plot_photometric_match,
                             plot_photcal)
-from .goodman_astro import plot_image
+
 from .utils import get_photometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
@@ -109,6 +110,7 @@ class Photometry(object):
                  plot_file_resolution=600,
                  save_plots=False,
                  reduced_data_path=None,
+                 use_interactive_mpl_backend=True,
                  debug=False) -> None:
         """Initialize the Photometry class.
 
@@ -126,6 +128,8 @@ class Photometry(object):
             color_map (str, optional): The colormap to use for plotting. Defaults to 'Blues_r'.
             plot_file_resolution (int, optional): The resolution (in DPI) for saved plots. Defaults to 600.
             save_plots (bool, optional): If True, saves plots of the processing steps. Defaults to False.
+            reduced_data_path (str, optional): The path to the reduced data directory. Defaults to None.
+            use_interactive_mpl_backend (bool, optional): If True, enables interactive matplotlib backend.
             debug (bool, optional): If True, enables debug-level logging. Defaults to False.
 
         Attributes:
@@ -170,6 +174,8 @@ class Photometry(object):
             "ellipticity": 0.0,
             "ellipticity_error": 0.0
         }
+        if not use_interactive_mpl_backend:
+            matplotlib.use('Agg')
 
 
 

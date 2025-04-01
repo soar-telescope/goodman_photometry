@@ -36,6 +36,7 @@ import logging
 import os.path
 import sys
 import warnings
+import matplotlib
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -49,6 +50,7 @@ from .goodman_astro import (extract_observation_metadata,
                             clear_wcs,
                             evaluate_data_quality_results,
                             get_filter_set,
+                            get_new_file_name,
                             get_vizier_catalog,
                             get_frame_center,
                             get_objects_sextractor,
@@ -122,6 +124,7 @@ class Astrometry(object):
                  save_scamp_plots=False,
                  save_intermediary_files=False,
                  reduced_data_path=None,
+                 use_interactive_mpl_backend=True,
                  debug=False):
         """Initialize the Astrometry class.
 
@@ -136,6 +139,8 @@ class Astrometry(object):
             save_plots (bool, optional): If True, saves plots of the processing steps. Defaults to False.
             save_scamp_plots (bool, optional): If True, saves SCAMP-generated plots. Defaults to False.
             save_intermediary_files (bool, optional): If True, saves intermediary files. Defaults to False.
+            reduced_data_path (str, optional): The reduced data path for the fits file.
+            use_interactive_mpl_backend (bool, optional): If True, enables interactive matplotlib backend.
             debug (bool, optional): If True, enables debug-level logging. Defaults to False.
         """
         self.filename = None
@@ -151,6 +156,8 @@ class Astrometry(object):
         self.image = None
         self.header = None
         self.log = logging.getLogger()
+        if not use_interactive_mpl_backend:
+            matplotlib.use('Agg')
 
     def __call__(self, filename):
         """Process a FITS file for astrometric calibration.
