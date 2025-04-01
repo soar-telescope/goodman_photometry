@@ -236,7 +236,9 @@ class Astrometry(object):
             hdu_list = fits.HDUList([hdu])
             hdu_list.writeto(self.filename.replace(".fits", "_mask.fits"), overwrite=True)
 
-        plot_image_filename = self.filename.replace(".fits", ".png")
+        plot_image_filename = get_new_file_name(current_file_name=self.filename,
+                                                new_path=self.reduced_data_path,
+                                                new_extension='png')
         plot_image(
             image=self.image,
             title=self.filename.replace(".fits", ""),
@@ -245,7 +247,9 @@ class Astrometry(object):
             cmap=self.color_map)
         self.log.info(f"Image - no WCS: {plot_image_filename}")
 
-        plot_bad_pixel_mask_filename = self.filename.replace(".fits", "_BPM.png")
+        plot_bad_pixel_mask_filename = get_new_file_name(current_file_name=self.filename,
+                                                         new_path=self.reduced_data_path,
+                                                         new_extension="_BPM.png")
         plot_image(
             image=self.bad_pixel_mask,
             title="Bad pixel mask",
@@ -302,7 +306,9 @@ class Astrometry(object):
         for flag in sextractor_flags:
             self.log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
 
-        plot_detections_filename = self.filename.replace(".fits", "_detections.png")
+        plot_detections_filename = get_new_file_name(current_file_name=self.filename,
+                                                     new_path=self.reduced_data_path,
+                                                     new_extension="_detections.png")
 
         plot_image(
             image=self.image,
@@ -324,7 +330,9 @@ class Astrometry(object):
         """
         data_quality_sources = self.sources[self.sources['flags'] == 0]
 
-        plot_detections_flag_0_filename = self.filename.replace(".fits", "_detections_flag_0.png")
+        plot_detections_flag_0_filename = get_new_file_name(current_file_name=self.filename,
+                                                            new_path=self.reduced_data_path,
+                                                            new_extension="_detections_flag_0.png")
 
         plot_image(
             image=self.image,

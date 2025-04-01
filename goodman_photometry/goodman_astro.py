@@ -319,22 +319,26 @@ def get_new_file_name(current_file_name: str, new_path: str = "", new_extension:
     Args:
         current_file_name (str): The original file name with its path.
         new_path (str, optional): The new directory for the file. Defaults to the original directory.
-        new_extension (str, optional): The new file extension (without the dot). Defaults to the original extension.
+        new_extension (str, optional): The new file extension (can include an underscore, e.g., '_BMP.png').
+                                      If provided, it replaces the existing extension.
 
     Returns:
         str: The updated file path.
 
-    Raises: ValueError: If current_file_name is empty
+    Raises:
+        ValueError: If current_file_name is empty.
     """
     file_path = Path(current_file_name)
-    if not file_path.parts:
+    if not file_path.name:  # Ensures the filename is not empty
         raise ValueError("File path is empty.")
 
-    # Use new_extension if provided
+    # Replace the entire extension with new_extension if provided
     if new_extension:
-        new_filename = file_path.stem + f".{new_extension}"
+        if "." not in new_extension:
+            new_extension = "." + new_extension
+        new_filename = file_path.stem + new_extension  # Removes old extension and appends new_extension
     else:
-        new_filename = file_path.name
+        new_filename = file_path.name  # Keep the original filename
 
     # Use new_path if provided, otherwise keep the original directory
     target_directory = Path(new_path) if new_path else file_path.parent
