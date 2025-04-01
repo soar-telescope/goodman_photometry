@@ -30,8 +30,9 @@ Version:
 """
 import datetime
 import logging
+import os.path
 import warnings
-
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
@@ -51,9 +52,10 @@ from .goodman_astro import (create_bad_pixel_mask,
                             get_objects_sextractor,
                             get_photometric_zeropoint,
                             get_pixel_scale,
+                            plot_image,
                             plot_photometric_match,
                             plot_photcal)
-from .goodman_astro import plot_image
+
 from .utils import get_photometry_args, setup_logging
 
 warnings.simplefilter(action='ignore', category=FITSFixedWarning)
@@ -107,6 +109,8 @@ class Photometry(object):
                  color_map='Blues_r',
                  plot_file_resolution=600,
                  save_plots=False,
+                 reduced_data_path=None,
+                 use_interactive_mpl_backend=True,
                  debug=False) -> None:
         """Initialize the Photometry class.
 
@@ -124,6 +128,8 @@ class Photometry(object):
             color_map (str, optional): The colormap to use for plotting. Defaults to 'Blues_r'.
             plot_file_resolution (int, optional): The resolution (in DPI) for saved plots. Defaults to 600.
             save_plots (bool, optional): If True, saves plots of the processing steps. Defaults to False.
+            reduced_data_path (str, optional): The path to the reduced data directory. Defaults to None.
+            use_interactive_mpl_backend (bool, optional): If True, enables interactive matplotlib backend.
             debug (bool, optional): If True, enables debug-level logging. Defaults to False.
 
         Attributes:
@@ -148,6 +154,7 @@ class Photometry(object):
         self.filename = None
         self.output_filename = None
         self.save_plots = save_plots
+        self.reduced_data_path = reduced_data_path
         self.debug = debug
         self.catalog_name = catalog_name
         self.magnitude_threshold = magnitude_threshold
@@ -167,53 +174,10 @@ class Photometry(object):
             "ellipticity": 0.0,
             "ellipticity_error": 0.0
         }
+        if not use_interactive_mpl_backend:
+            matplotlib.use('Agg')
 
-    @property
-    def dq(self):
-        """Get the data quality assessment results.
 
-        This property provides access to the data quality assessment results, which include:
-        - FWHM (Full Width at Half Maximum) of detected sources.
-        - FWHM error.
-        - Ellipticity of detected sources.
-        - Ellipticity error.
-
-        Returns:
-            dict: A dictionary containing the data quality metrics. The keys are:
-                - 'fwhm': The median FWHM of detected sources.
-                - 'fwhm_error': The uncertainty in the FWHM measurement.
-                - 'ellipticity': The median ellipticity of detected sources.
-                - 'ellipticity_error': The uncertainty in the ellipticity measurement.
-        """
-        return self._data_quality
-
-    @dq.setter
-    def dq(self, results):
-        """Set the data quality assessment results.
-
-        This setter updates the data quality assessment results. It ensures that only valid
-        float values are assigned to the respective keys in the `_data_quality` dictionary.
-
-        Args:
-            results (tuple): A tuple containing the following values in order:
-                - fwhm (float): The median FWHM of detected sources.
-                - fwhm_error (float): The uncertainty in the FWHM measurement.
-                - ellipticity (float): The median ellipticity of detected sources.
-                - ellipticity_error (float): The uncertainty in the ellipticity measurement.
-
-        Notes:
-            - Only float values are accepted for updating the data quality metrics.
-            - If any value in the tuple is not a float, it is ignored.
-        """
-        fwhm, fwhm_error, ellipticity, ellipticity_error = results
-        if isinstance(fwhm, float):
-            self._data_quality["fwhm"] = fwhm
-        if isinstance(fwhm_error, float):
-            self._data_quality["fwhm_error"] = fwhm_error
-        if isinstance(ellipticity, float):
-            self._data_quality["ellipticity"] = ellipticity
-        if isinstance(ellipticity_error, float):
-            self._data_quality["ellipticity_error"] = ellipticity_error
 
     def __call__(self, filename) -> None:
         """Process a FITS file for photometric calibration.
@@ -243,6 +207,9 @@ class Photometry(object):
             >>> processor("observation.fits")
         """
         self.filename = filename
+
+        if self.reduced_data_path is None or not os.path.isdir(self.reduced_data_path):
+            self.reduced_data_path = os.path.dirname(self.filename)
 
         self.start = datetime.datetime.now()
         data = fits.getdata(self.filename).astype(np.double)
@@ -302,12 +269,61 @@ class Photometry(object):
 
         self.data_quality_assessment(data=data)
 
-        self.do_photometry(data=data,
-                           header=header,
-                           wcs=wcs,
-                           center_ra=center_ra,
-                           center_dec=center_dec,
-                           fov_radius=fov_radius)
+        output_file, elapsed_time = self.do_photometry(data=data,
+                                                       header=header,
+                                                       wcs=wcs,
+                                                       center_ra=center_ra,
+                                                       center_dec=center_dec,
+                                                       fov_radius=fov_radius)
+
+        return {"output_file": output_file, "elapsed_time": elapsed_time}
+
+    @property
+    def dq(self):
+        """Get the data quality assessment results.
+
+        This property provides access to the data quality assessment results, which include:
+        - FWHM (Full Width at Half Maximum) of detected sources.
+        - FWHM error.
+        - Ellipticity of detected sources.
+        - Ellipticity error.
+
+        Returns:
+            dict: A dictionary containing the data quality metrics. The keys are:
+                - 'fwhm': The median FWHM of detected sources.
+                - 'fwhm_error': The uncertainty in the FWHM measurement.
+                - 'ellipticity': The median ellipticity of detected sources.
+                - 'ellipticity_error': The uncertainty in the ellipticity measurement.
+        """
+        return self._data_quality
+
+    @dq.setter
+    def dq(self, results):
+        """Set the data quality assessment results.
+
+        This setter updates the data quality assessment results. It ensures that only valid
+        float values are assigned to the respective keys in the `_data_quality` dictionary.
+
+        Args:
+            results (tuple): A tuple containing the following values in order:
+                - fwhm (float): The median FWHM of detected sources.
+                - fwhm_error (float): The uncertainty in the FWHM measurement.
+                - ellipticity (float): The median ellipticity of detected sources.
+                - ellipticity_error (float): The uncertainty in the ellipticity measurement.
+
+        Notes:
+            - Only float values are accepted for updating the data quality metrics.
+            - If any value in the tuple is not a float, it is ignored.
+        """
+        fwhm, fwhm_error, ellipticity, ellipticity_error = results
+        if isinstance(fwhm, float):
+            self._data_quality["fwhm"] = fwhm
+        if isinstance(fwhm_error, float):
+            self._data_quality["fwhm_error"] = fwhm_error
+        if isinstance(ellipticity, float):
+            self._data_quality["ellipticity"] = ellipticity
+        if isinstance(ellipticity_error, float):
+            self._data_quality["ellipticity_error"] = ellipticity_error
 
     def run_sextractor(self, data, mask, gain, pixel_scale, wcs, seeing=1):
         """Run SExtractor to detect sources in the image.
@@ -596,10 +612,11 @@ class Photometry(object):
 
         hdu = fits.PrimaryHDU(data=data, header=header_out)
         hdul = fits.HDUList([hdu])
-        photometry_filename = self.filename.replace(".fits", "_phot.fits")
-        hdul.writeto(photometry_filename, overwrite=True)
+        new_filename = os.path.basename(self.filename.replace(".fits", "_phot.fits"))
+        output_file = os.path.join(self.reduced_data_path, new_filename)
+        hdul.writeto(output_file, overwrite=True)
 
-        self.log.info(f"FITS file saved as {photometry_filename}")
+        self.log.info(f"FITS file saved as {output_file}")
 
         # set start of the code
         end = datetime.datetime.now()
@@ -612,6 +629,10 @@ class Photometry(object):
         print("")
         print("Photometric calibration was applied.")
         print("")
+
+        return output_file, elapsed_time
+
+
 
 
 def goodman_photometry():

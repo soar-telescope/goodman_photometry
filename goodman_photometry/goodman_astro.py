@@ -51,6 +51,7 @@ from astropy.visualization import simple_norm
 from astropy.wcs import WCS
 from astroquery.vizier import Vizier
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from pathlib import Path
 from scipy.optimize import minimize
 from scipy.stats import binned_statistic_2d
 from scipy.stats import chi2
@@ -141,7 +142,7 @@ def extract_observation_metadata(header):
     # Ensure observations are in IMAGING mode; exit if not.
     wavelength_mode = header.get('WAVMODE')
     if wavelength_mode != 'IMAGING':
-        sys.exit("Error: WAVMODE is not IMAGING. No data to process.")
+        raise ValueError("Error: WAVMODE is not IMAGING. No data to process.")
 
     # Determine the active filter name, considering both filter wheels.
     primary_filter = header.get('FILTER')
@@ -309,6 +310,40 @@ def get_filter_set(filter_name: str) -> tuple[str, str]:
         photometry_filter = "g_SDSS"
 
     return catalog_filter, photometry_filter
+
+
+def get_new_file_name(current_file_name: str, new_path: str = "", new_extension: str = "") -> str:
+    """
+    Generate a new file path with an optional new directory and/or file extension.
+
+    Args:
+        current_file_name (str): The original file name with its path.
+        new_path (str, optional): The new directory for the file. Defaults to the original directory.
+        new_extension (str, optional): The new file extension (can include an underscore, e.g., '_BMP.png').
+                                      If provided, it replaces the existing extension.
+
+    Returns:
+        str: The updated file path.
+
+    Raises:
+        ValueError: If current_file_name is empty.
+    """
+    file_path = Path(current_file_name)
+    if not file_path.name:  # Ensures the filename is not empty
+        raise ValueError("File path is empty.")
+
+    # Replace the entire extension with new_extension if provided
+    if new_extension:
+        if "." not in new_extension:
+            new_extension = "." + new_extension
+        new_filename = file_path.stem + new_extension  # Removes old extension and appends new_extension
+    else:
+        new_filename = file_path.name  # Keep the original filename
+
+    # Use new_path if provided, otherwise keep the original directory
+    target_directory = Path(new_path) if new_path else file_path.parent
+
+    return str(target_directory / new_filename)
 
 
 def create_goodman_wcs(header):
@@ -626,7 +661,7 @@ def get_objects_sextractor(
                 break
     if binname is None:
         log.critical("Can't find SExtractor binary")
-        sys.exit("Can't find SExtractor binary")
+        raise SystemError("Can't find SExtractor binary")
     # else:
     #     log.info("Using SExtractor binary at", binname)
 
@@ -1772,7 +1807,7 @@ def refine_wcs_scamp(
 
     if binname is None:
         log.critical("Can't find SCAMP binary")
-        return None
+        raise OSError("Can\'t find SCAMP binary")
     # else:
     #     log.info("Using SCAMP binary at", binname)
 

@@ -33,8 +33,10 @@ Version:
 """
 import datetime
 import logging
+import os.path
 import sys
 import warnings
+import matplotlib
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,6 +50,7 @@ from .goodman_astro import (extract_observation_metadata,
                             clear_wcs,
                             evaluate_data_quality_results,
                             get_filter_set,
+                            get_new_file_name,
                             get_vizier_catalog,
                             get_frame_center,
                             get_objects_sextractor,
@@ -120,6 +123,8 @@ class Astrometry(object):
                  save_plots=False,
                  save_scamp_plots=False,
                  save_intermediary_files=False,
+                 reduced_data_path=None,
+                 use_interactive_mpl_backend=True,
                  debug=False):
         """Initialize the Astrometry class.
 
@@ -134,12 +139,15 @@ class Astrometry(object):
             save_plots (bool, optional): If True, saves plots of the processing steps. Defaults to False.
             save_scamp_plots (bool, optional): If True, saves SCAMP-generated plots. Defaults to False.
             save_intermediary_files (bool, optional): If True, saves intermediary files. Defaults to False.
+            reduced_data_path (str, optional): The reduced data path for the fits file.
+            use_interactive_mpl_backend (bool, optional): If True, enables interactive matplotlib backend.
             debug (bool, optional): If True, enables debug-level logging. Defaults to False.
         """
         self.filename = None
         self.save_plots = save_plots
         self.debug = debug
         self.save_intermediary_files = save_intermediary_files
+        self.reduced_data_path = reduced_data_path
         self.save_scamp_plots = save_scamp_plots
         self.catalog_name = catalog_name
         self.magnitude_threshold = magnitude_threshold
@@ -148,6 +156,8 @@ class Astrometry(object):
         self.image = None
         self.header = None
         self.log = logging.getLogger()
+        if not use_interactive_mpl_backend:
+            matplotlib.use('Agg')
 
     def __call__(self, filename):
         """Process a FITS file for astrometric calibration.
@@ -160,6 +170,9 @@ class Astrometry(object):
               WCS refinement, and saving the results.
         """
         self.filename = filename
+
+        if self.reduced_data_path is None or not os.path.isdir(self.reduced_data_path):
+            self.reduced_data_path = os.path.dirname(self.filename)
 
         self.start = datetime.datetime.now()
         self.log.info(f"Processing {self.filename}")
@@ -201,7 +214,11 @@ class Astrometry(object):
 
         self.__update_header()
 
-        self.__save_to_fits_file()
+        output_file, elapsed_time = self.__save_to_fits_file()
+        return {
+            "output_file": output_file,
+            "elapsed_time": elapsed_time
+        }
 
     def __create_bad_pixel_mask(self):
         """Create a bad pixel mask for the image.
@@ -219,7 +236,9 @@ class Astrometry(object):
             hdu_list = fits.HDUList([hdu])
             hdu_list.writeto(self.filename.replace(".fits", "_mask.fits"), overwrite=True)
 
-        plot_image_filename = self.filename.replace(".fits", ".png")
+        plot_image_filename = get_new_file_name(current_file_name=self.filename,
+                                                new_path=self.reduced_data_path,
+                                                new_extension='png')
         plot_image(
             image=self.image,
             title=self.filename.replace(".fits", ""),
@@ -228,7 +247,9 @@ class Astrometry(object):
             cmap=self.color_map)
         self.log.info(f"Image - no WCS: {plot_image_filename}")
 
-        plot_bad_pixel_mask_filename = self.filename.replace(".fits", "_BPM.png")
+        plot_bad_pixel_mask_filename = get_new_file_name(current_file_name=self.filename,
+                                                         new_path=self.reduced_data_path,
+                                                         new_extension="_BPM.png")
         plot_image(
             image=self.bad_pixel_mask,
             title="Bad pixel mask",
@@ -285,7 +306,9 @@ class Astrometry(object):
         for flag in sextractor_flags:
             self.log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
 
-        plot_detections_filename = self.filename.replace(".fits", "_detections.png")
+        plot_detections_filename = get_new_file_name(current_file_name=self.filename,
+                                                     new_path=self.reduced_data_path,
+                                                     new_extension="_detections.png")
 
         plot_image(
             image=self.image,
@@ -307,7 +330,9 @@ class Astrometry(object):
         """
         data_quality_sources = self.sources[self.sources['flags'] == 0]
 
-        plot_detections_flag_0_filename = self.filename.replace(".fits", "_detections_flag_0.png")
+        plot_detections_flag_0_filename = get_new_file_name(current_file_name=self.filename,
+                                                            new_path=self.reduced_data_path,
+                                                            new_extension="_detections_flag_0.png")
 
         plot_image(
             image=self.image,
@@ -441,18 +466,21 @@ class Astrometry(object):
         Notes:
             - The output file is saved with the suffix "_wcs.fits".
         """
-        outgoing_filename = self.filename.replace(".fits", "_wcs.fits")
+        new_filename = os.path.basename(self.filename.replace(".fits", "_wcs.fits"))
+        outgoing_filename = os.path.join(self.reduced_data_path, new_filename)
         hdu = fits.PrimaryHDU(data=self.image, header=self.outgoing_header)
         hdu_list = fits.HDUList([hdu])
         hdu_list.writeto(outgoing_filename, overwrite=True)
 
         self.log.info(f"FITS file saved as {outgoing_filename}")
 
-        end = datetime.datetime.now()
+        duration_in_seconds = (datetime.datetime.now() - self.start).total_seconds()
 
-        self.log.info(f"Astrometric calibration executed in {(end - self.start).total_seconds():.2f} seconds")
+        self.log.info(f"Astrometric calibration executed in {duration_in_seconds:.2f} seconds")
 
         self.log.info('Astrometric calibration finished.')
+
+        return outgoing_filename, duration_in_seconds
 
 
 def goodman_astrometry():

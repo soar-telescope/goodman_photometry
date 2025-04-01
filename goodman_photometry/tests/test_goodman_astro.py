@@ -21,6 +21,7 @@ from ..goodman_astro import (
     create_goodman_wcs,
     extract_observation_metadata,
     get_vizier_catalog,
+    get_new_file_name,
     mask_field_of_view,
     table_to_ldac,
     get_pixel_scale,
@@ -53,8 +54,7 @@ from ..goodman_astro import (
 
 class TestExtractObservationMetadata(unittest.TestCase):
 
-    @patch("goodman_photometry.goodman_astro.sys.exit")
-    def test_invalid_wavelength_mode(self, mock_exit):
+    def test_invalid_wavelength_mode(self):
         """
         Test that the function exits when WAVMODE is not 'IMAGING'.
         """
@@ -68,11 +68,8 @@ class TestExtractObservationMetadata(unittest.TestCase):
         header['RDNOISE'] = 5.0
         header['EXPTIME'] = 100.0
 
-        # Call the function with the mock header
-        extract_observation_metadata(header)
-
-        # Assert sys.exit was called
-        mock_exit.assert_called_with("Error: WAVMODE is not IMAGING. No data to process.")
+        self.assertRaises(ValueError, extract_observation_metadata, header)
+        self.assertRaisesRegex(ValueError, "Error: WAVMODE is not IMAGING. No data to process.", extract_observation_metadata, header)
 
     @patch('goodman_photometry.goodman_astro.get_observation_time', return_value='2025-01-01T00:00:00')
     @patch('goodman_photometry.goodman_astro.calculate_saturation_threshold', return_value=50000)
@@ -1740,6 +1737,48 @@ class TestCalibratePhotometry(unittest.TestCase):
         # Verify the results
         self.assertIsNone(results)
 
+
+class TestGetNewFileName(unittest.TestCase):
+
+    def test_no_changes(self):
+        """Test that the function returns the same path if no changes are requested."""
+        result = get_new_file_name("/home/user/document.txt")
+        self.assertEqual(result, "/home/user/document.txt")
+
+    def test_change_extension(self):
+        """Test changing the file extension."""
+        result = get_new_file_name("/home/user/document.txt", new_extension="md")
+        self.assertEqual(result, "/home/user/document.md")
+
+    def test_change_extension_same_extension(self):
+        """Test changing the file extension when it's already the same."""
+        result = get_new_file_name("/home/user/document.txt", new_extension="txt")
+        self.assertEqual(result, "/home/user/document.txt")
+
+    def test_change_path(self):
+        """Test changing the file path."""
+        result = get_new_file_name("/home/user/document.txt", new_path="/new/path")
+        self.assertEqual(result, "/new/path/document.txt")
+
+    def test_change_path_and_extension(self):
+        """Test changing both file path and extension."""
+        result = get_new_file_name("/home/user/document.txt", new_path="/new/path", new_extension="md")
+        self.assertEqual(result, "/new/path/document.md")
+
+    def test_no_extension(self):
+        """Test a filename with no extension."""
+        result = get_new_file_name("/home/user/document", new_extension="txt")
+        self.assertEqual(result, "/home/user/document.txt")
+
+    def test_multiple_dots(self):
+        """Test a filename with multiple dots."""
+        result = get_new_file_name("/home/user/archive.tar.gz", new_extension="zip")
+        self.assertEqual(result, "/home/user/archive.tar.zip")
+
+    def test_empty_filename(self):
+        """Test empty filename handling."""
+        with self.assertRaises(ValueError):
+            get_new_file_name("")
 
 if __name__ == "__main__":
     unittest.main()
