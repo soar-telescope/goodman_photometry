@@ -24,6 +24,7 @@ Notes:
     - Command-line arguments are parsed using `argparse`.
 """
 import argparse
+import os
 import sys
 import logging
 
@@ -159,6 +160,22 @@ def get_astrometry_args(arguments=None):
         dest='log_filename',
         help='Defines the filename of the log file.')
 
+    parser.add_argument(
+        '--reduced-data-path',
+        default=os.getcwd(),
+        type=str,
+        action='store',
+        dest='reduced_data_path',
+        help='Defines the path where the reduced data is stored. Defaults to the current working directory.')
+
+    parser.add_argument(
+        '--artifacts-path',
+        default=os.getcwd(),
+        type=str,
+        action='store',
+        dest='artifacts_path',
+        help='Defines the path where the artifacts are stored. Defaults to the current working directory.')
+
     parser.add_argument('-p', '--save-plots', action='store_true')
     parser.add_argument('-s', '--save-scamp-plots', action='store_true')
     parser.add_argument('-i', '--save-intermediary-files', action='store_true')
@@ -256,6 +273,22 @@ def get_photometry_args(arguments=None):
         action='store',
         dest='log_filename',
         help='Defines the filename of the log file.')
+
+    parser.add_argument(
+        '--reduced-data-path',
+        default=os.getcwd(),
+        type=str,
+        action='store',
+        dest='reduced_data_path',
+        help='Defines the path where the reduced data is stored. Defaults to the current working directory.')
+
+    parser.add_argument(
+        '--artifacts-path',
+        default=os.getcwd(),
+        type=str,
+        action='store',
+        dest='artifacts_path',
+        help='Defines the path where the artifacts are stored. Defaults to the current working directory.')
 
     parser.add_argument('-p', '--save-plots', action='store_true')
     parser.add_argument('-d', '--debug', action='store_true')

@@ -48,6 +48,7 @@ from .goodman_astro import (create_bad_pixel_mask,
                             get_filter_set,
                             get_vizier_catalog,
                             get_frame_center,
+                            get_new_file_name,
                             extract_observation_metadata,
                             get_objects_sextractor,
                             get_photometric_zeropoint,
@@ -110,6 +111,7 @@ class Photometry(object):
                  plot_file_resolution=600,
                  save_plots=False,
                  reduced_data_path=None,
+                 artifacts_path=None,
                  use_interactive_mpl_backend=True,
                  debug=False) -> None:
         """Initialize the Photometry class.
@@ -155,6 +157,7 @@ class Photometry(object):
         self.output_filename = None
         self.save_plots = save_plots
         self.reduced_data_path = reduced_data_path
+        self.artifacts_path = artifacts_path
         self.debug = debug
         self.catalog_name = catalog_name
         self.magnitude_threshold = magnitude_threshold
@@ -211,6 +214,9 @@ class Photometry(object):
         if self.reduced_data_path is None or not os.path.isdir(self.reduced_data_path):
             self.reduced_data_path = os.path.dirname(self.filename)
 
+        if self.artifacts_path is None or not os.path.isdir(self.artifacts_path):
+            self.artifacts_path = self.reduced_data_path
+
         self.start = datetime.datetime.now()
         data = fits.getdata(self.filename).astype(np.double)
         header = fits.getheader(self.filename)
@@ -245,11 +251,13 @@ class Photometry(object):
 
         self.log.info(f"Processing {self.filename}: filter: {self.filter_name} gain: {gain:.2f} at {time}")
         if self.save_plots:
-            output_filename = self.filename.replace(".fits", "_phot_wcs.png")
+            output_filename = get_new_file_name(current_file_name=self.filename,
+                                                new_path=self.artifacts_path,
+                                                new_extension="_phot_wcs.png")
             plot_image(
                 image=data,
                 wcs=wcs,
-                title=filename.replace(".fits", ""),
+                title=self.filename.replace(".fits", ""),
                 output_file=output_filename,
                 dpi=self.plot_file_resolution,
                 cmap=self.color_map)
@@ -370,7 +378,9 @@ class Photometry(object):
             self.log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
 
         if self.save_plots:
-            output_filename = self.filename.replace(".fits", "_phot_detections.png")
+            output_filename = get_new_file_name(current_file_name=self.filename,
+                                                new_path=self.artifacts_path,
+                                                new_extension="_phot_detections.png")
             plot_image(
                 image=data,
                 wcs=wcs,
@@ -408,7 +418,9 @@ class Photometry(object):
         """
         self.data_quality_sources = self.sources[self.sources['flags'] == 0]
         if self.save_plots:
-            output_filename = self.filename.replace(".fits", "_phot_detections_flag0.png")
+            output_filename = get_new_file_name(current_file_name=self.filename,
+                                                new_path=self.artifacts_path,
+                                                new_extension="_phot_detections_flag0.png")
             plot_image(
                 image=data,
                 x_points=self.data_quality_sources['x'],
@@ -512,7 +524,9 @@ class Photometry(object):
         self.log.info(f"Table of sources used for photometric calibration is stored as {sources_table_html_filename}")
 
         # plot calibrated detections over the image
-        calibrated_detections_plot_filename = self.filename.replace(".fits", "_phot_detections_calibrated.png")
+        calibrated_detections_plot_filename = get_new_file_name(current_file_name=self.filename,
+                                                                new_path=self.artifacts_path,
+                                                                new_extension="_phot_detections_calibrated.png")
         plot_photcal(image=data,
                      phot_table=sources_table,
                      wcs=wcs,
@@ -529,13 +543,17 @@ class Photometry(object):
         plot_photometric_match(match_result=magnitudes, mode='dist', bins=plot_bins)
         plt.tight_layout()
         if self.save_plots:
-            plt.savefig(self.filename.replace(".fits", "_phot_photmatch.png"))
+            plt.savefig(get_new_file_name(current_file_name=self.filename,
+                                          new_path=self.artifacts_path,
+                                          new_extension="_phot_photmatch.png"))
 
         plt.figure()
         plot_photometric_match(match_result=magnitudes)
         plt.tight_layout()
         if self.save_plots:
-            plt.savefig(self.filename.replace(".fits", "_phot_photmatch2.png"))
+            plt.savefig(get_new_file_name(current_file_name=self.filename,
+                                          new_path=self.artifacts_path,
+                                          new_extension="_phot_photmatch2.png"))
 
         plt.figure()
         plot_photometric_match(match_result=magnitudes,
@@ -548,7 +566,9 @@ class Photometry(object):
         plt.title('Zero point')
         plt.tight_layout()
         if self.save_plots is True:
-            plt.savefig(self.filename.replace(".fits", "_phot_zp.png"))
+            plt.savefig(get_new_file_name(current_file_name=self.filename,
+                                          new_path=self.artifacts_path,
+                                          new_extension="_phot_zp.png"))
 
         # get photometric zero point estimate
         median_zeropoint, median_zeropoint_error = get_photometric_zeropoint(match_results=magnitudes)
@@ -670,5 +690,7 @@ def goodman_photometry():
         color_map=args.color_map,
         plot_file_resolution=args.plot_file_resolution,
         save_plots=args.save_plots,
+        reduced_data_path=args.reduced_data_path,
+        artifacts_path=args.artifacts_path,
         debug=args.debug)
     photometry(filename=args.filename)

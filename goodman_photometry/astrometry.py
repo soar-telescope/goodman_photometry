@@ -124,6 +124,7 @@ class Astrometry(object):
                  save_scamp_plots=False,
                  save_intermediary_files=False,
                  reduced_data_path=None,
+                 artifacts_path=None,
                  use_interactive_mpl_backend=True,
                  debug=False):
         """Initialize the Astrometry class.
@@ -148,6 +149,7 @@ class Astrometry(object):
         self.debug = debug
         self.save_intermediary_files = save_intermediary_files
         self.reduced_data_path = reduced_data_path
+        self.artifacts_path = artifacts_path
         self.save_scamp_plots = save_scamp_plots
         self.catalog_name = catalog_name
         self.magnitude_threshold = magnitude_threshold
@@ -173,6 +175,9 @@ class Astrometry(object):
 
         if self.reduced_data_path is None or not os.path.isdir(self.reduced_data_path):
             self.reduced_data_path = os.path.dirname(self.filename)
+
+        if self.artifacts_path is None or not os.path.isdir(self.artifacts_path):
+            self.artifacts_path = self.reduced_data_path
 
         self.start = datetime.datetime.now()
         self.log.info(f"Processing {self.filename}")
@@ -237,7 +242,7 @@ class Astrometry(object):
             hdu_list.writeto(self.filename.replace(".fits", "_mask.fits"), overwrite=True)
 
         plot_image_filename = get_new_file_name(current_file_name=self.filename,
-                                                new_path=self.reduced_data_path,
+                                                new_path=self.artifacts_path,
                                                 new_extension='png')
         plot_image(
             image=self.image,
@@ -248,7 +253,7 @@ class Astrometry(object):
         self.log.info(f"Image - no WCS: {plot_image_filename}")
 
         plot_bad_pixel_mask_filename = get_new_file_name(current_file_name=self.filename,
-                                                         new_path=self.reduced_data_path,
+                                                         new_path=self.artifacts_path,
                                                          new_extension="_BPM.png")
         plot_image(
             image=self.bad_pixel_mask,
@@ -307,7 +312,7 @@ class Astrometry(object):
             self.log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
 
         plot_detections_filename = get_new_file_name(current_file_name=self.filename,
-                                                     new_path=self.reduced_data_path,
+                                                     new_path=self.artifacts_path,
                                                      new_extension="_detections.png")
 
         plot_image(
@@ -331,7 +336,7 @@ class Astrometry(object):
         data_quality_sources = self.sources[self.sources['flags'] == 0]
 
         plot_detections_flag_0_filename = get_new_file_name(current_file_name=self.filename,
-                                                            new_path=self.reduced_data_path,
+                                                            new_path=self.artifacts_path,
                                                             new_extension="_detections_flag_0.png")
 
         plot_image(
@@ -502,6 +507,8 @@ def goodman_astrometry():
         save_plots=args.save_plots,
         save_scamp_plots=args.save_scamp_plots,
         save_intermediary_files=args.save_intermediary_files,
+        reduced_data_path=args.reduced_data_path,
+        artifacts_path=args.artifacts_path,
         debug=args.debug)
 
     astrometry(filename=args.filename)
