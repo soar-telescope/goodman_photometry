@@ -177,6 +177,10 @@ class Photometry(object):
             "ellipticity": 0.0,
             "ellipticity_error": 0.0
         }
+
+        self._plot_artifacts = {
+
+        }
         if not use_interactive_mpl_backend:
             matplotlib.use('Agg')
 
@@ -254,13 +258,15 @@ class Photometry(object):
             output_filename = get_new_file_name(current_file_name=self.filename,
                                                 new_path=self.artifacts_path,
                                                 new_extension="_phot_wcs.png")
+            self._plot_artifacts["photometry_wcs"] = output_filename
             plot_image(
                 image=data,
                 wcs=wcs,
                 title=self.filename.replace(".fits", ""),
                 output_file=output_filename,
                 dpi=self.plot_file_resolution,
-                cmap=self.color_map)
+                cmap=self.color_map,
+                save_to_file=self.save_plots)
 
         bad_pixel_mask = create_bad_pixel_mask(
             image=data,
@@ -277,14 +283,22 @@ class Photometry(object):
 
         self.data_quality_assessment(data=data)
 
-        output_file, elapsed_time = self.do_photometry(data=data,
+        (output_file,
+         elapsed_time,
+         sources_table_html_file) = self.do_photometry(data=data,
                                                        header=header,
                                                        wcs=wcs,
                                                        center_ra=center_ra,
                                                        center_dec=center_dec,
                                                        fov_radius=fov_radius)
 
-        return {"output_file": output_file, "elapsed_time": elapsed_time}
+        return {
+            "output_file": output_file,
+            "elapsed_time": elapsed_time,
+            "data_quality": self._data_quality,
+            "sources_table_html_file": sources_table_html_file,
+            "plots": self._plot_artifacts
+        }
 
     @property
     def dq(self):
@@ -324,14 +338,14 @@ class Photometry(object):
             - If any value in the tuple is not a float, it is ignored.
         """
         fwhm, fwhm_error, ellipticity, ellipticity_error = results
-        if isinstance(fwhm, float):
-            self._data_quality["fwhm"] = fwhm
-        if isinstance(fwhm_error, float):
-            self._data_quality["fwhm_error"] = fwhm_error
-        if isinstance(ellipticity, float):
-            self._data_quality["ellipticity"] = ellipticity
-        if isinstance(ellipticity_error, float):
-            self._data_quality["ellipticity_error"] = ellipticity_error
+        if isinstance(fwhm, float) or isinstance(fwhm, np.float32):
+            self._data_quality["fwhm"] = float(fwhm)
+        if isinstance(fwhm_error, float) or isinstance(fwhm_error, np.float32):
+            self._data_quality["fwhm_error"] = float(fwhm_error)
+        if isinstance(ellipticity, float) or isinstance(ellipticity, np.float32):
+            self._data_quality["ellipticity"] = float(ellipticity)
+        if isinstance(ellipticity_error, float) or isinstance(ellipticity_error, np.float32):
+            self._data_quality["ellipticity_error"] = float(ellipticity_error)
 
     def run_sextractor(self, data, mask, gain, pixel_scale, wcs, seeing=1):
         """Run SExtractor to detect sources in the image.
@@ -381,6 +395,7 @@ class Photometry(object):
             output_filename = get_new_file_name(current_file_name=self.filename,
                                                 new_path=self.artifacts_path,
                                                 new_extension="_phot_detections.png")
+            self._plot_artifacts['photometry_detections'] = output_filename
             plot_image(
                 image=data,
                 wcs=wcs,
@@ -389,7 +404,8 @@ class Photometry(object):
                 title="Detected sources",
                 output_file=output_filename,
                 dpi=self.plot_file_resolution,
-                cmap=self.color_map)
+                cmap=self.color_map,
+                save_to_file=self.save_plots)
             self.log.info(f"SExtractor detections plot saved to: {output_filename}")
         return self.sources
 
@@ -421,6 +437,7 @@ class Photometry(object):
             output_filename = get_new_file_name(current_file_name=self.filename,
                                                 new_path=self.artifacts_path,
                                                 new_extension="_phot_detections_flag0.png")
+            self._plot_artifacts['photometry_detections_flag0'] = output_filename
             plot_image(
                 image=data,
                 x_points=self.data_quality_sources['x'],
@@ -428,14 +445,10 @@ class Photometry(object):
                 title="Detected sources (FLAG=0)",
                 output_file=output_filename,
                 dpi=self.plot_file_resolution,
-                cmap=self.color_map)
+                cmap=self.color_map,
+                save_to_file=self.save_plots)
             self.log.info(f"SExtractor detections (flag=0) plot saved to: {output_filename}")
         self.dq = evaluate_data_quality_results(source_catalog=self.data_quality_sources)
-        # fwhm, fwhm_error, ellipticity, ellipticity_error = evaluate_data_quality_results(source_catalog=self.data_quality_sources)
-        # self._data_quality["fwhm"] = fwhm
-        # self._data_quality["fwhm_error"] = fwhm_error
-        # self._data_quality["ellipticity"] = ellipticity
-        # self._data_quality["ellipticity_error"] = ellipticity_error
 
         self.log.info("--------------------------")
         self.log.info("Data Quality Outputs")
@@ -519,21 +532,27 @@ class Photometry(object):
                                                                 'a', 'b', 'theta', 'FLUX_RADIUS', 'fwhm', 'flags', 'bg',
                                                                 'ra', 'dec', 'mag_calib', 'mag_calib_err'])
 
-        sources_table_html_filename = self.filename.replace(".fits", "_obj_table.html")
+        sources_table_html_filename = get_new_file_name(current_file_name=self.filename,
+                                                        new_path=self.artifacts_path,
+                                                        new_extension="_obj_table.html")
         sources_table.write(sources_table_html_filename, format='html', overwrite=True)
         self.log.info(f"Table of sources used for photometric calibration is stored as {sources_table_html_filename}")
 
         # plot calibrated detections over the image
+
         calibrated_detections_plot_filename = get_new_file_name(current_file_name=self.filename,
                                                                 new_path=self.artifacts_path,
                                                                 new_extension="_phot_detections_calibrated.png")
+        if self.save_plots:
+            self._plot_artifacts['phot_detections_calibrated'] = calibrated_detections_plot_filename
         plot_photcal(image=data,
                      phot_table=sources_table,
                      wcs=wcs,
                      column_scale='mag_calib',
                      quantiles=(0.02, 0.98),
                      output_file=calibrated_detections_plot_filename,
-                     dpi=self.plot_file_resolution)
+                     dpi=self.plot_file_resolution,
+                     save_to_file=self.save_plots)
         self.log.info(f"Photometric calibrated detections plotted over the image with WCS solution as "
                       f"{calibrated_detections_plot_filename}")
 
@@ -543,17 +562,21 @@ class Photometry(object):
         plot_photometric_match(match_result=magnitudes, mode='dist', bins=plot_bins)
         plt.tight_layout()
         if self.save_plots:
-            plt.savefig(get_new_file_name(current_file_name=self.filename,
-                                          new_path=self.artifacts_path,
-                                          new_extension="_phot_photmatch.png"))
+            photometry_match = get_new_file_name(current_file_name=self.filename,
+                                                 new_path=self.artifacts_path,
+                                                 new_extension="_phot_photmatch.png")
+            self._plot_artifacts['photometry_match'] = photometry_match
+            plt.savefig(photometry_match)
 
         plt.figure()
         plot_photometric_match(match_result=magnitudes)
         plt.tight_layout()
         if self.save_plots:
-            plt.savefig(get_new_file_name(current_file_name=self.filename,
-                                          new_path=self.artifacts_path,
-                                          new_extension="_phot_photmatch2.png"))
+            photometry_match_2 = get_new_file_name(current_file_name=self.filename,
+                                                   new_path=self.artifacts_path,
+                                                   new_extension="_phot_photmatch2.png")
+            self._plot_artifacts['photometry_match_2'] = photometry_match_2
+            plt.savefig(photometry_match_2)
 
         plt.figure()
         plot_photometric_match(match_result=magnitudes,
@@ -566,9 +589,11 @@ class Photometry(object):
         plt.title('Zero point')
         plt.tight_layout()
         if self.save_plots is True:
-            plt.savefig(get_new_file_name(current_file_name=self.filename,
-                                          new_path=self.artifacts_path,
-                                          new_extension="_phot_zp.png"))
+            photometry_zeropoint = get_new_file_name(current_file_name=self.filename,
+                                                     new_path=self.artifacts_path,
+                                                     new_extension="_phot_zp.png")
+            self._plot_artifacts['photometry_zeropoint'] = photometry_zeropoint
+            plt.savefig(photometry_zeropoint)
 
         # get photometric zero point estimate
         median_zeropoint, median_zeropoint_error = get_photometric_zeropoint(match_results=magnitudes)
@@ -632,8 +657,10 @@ class Photometry(object):
 
         hdu = fits.PrimaryHDU(data=data, header=header_out)
         hdul = fits.HDUList([hdu])
-        new_filename = os.path.basename(self.filename.replace(".fits", "_phot.fits"))
-        output_file = os.path.join(self.reduced_data_path, new_filename)
+
+        output_file = get_new_file_name(current_file_name=self.filename,
+                                        new_path=self.reduced_data_path,
+                                        new_extension="_phot.fits")
         hdul.writeto(output_file, overwrite=True)
 
         self.log.info(f"FITS file saved as {output_file}")
@@ -650,7 +677,7 @@ class Photometry(object):
         print("Photometric calibration was applied.")
         print("")
 
-        return output_file, elapsed_time
+        return output_file, elapsed_time, sources_table_html_filename
 
 
 

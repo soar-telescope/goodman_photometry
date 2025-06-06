@@ -1149,7 +1149,7 @@ def format_astromatic_opts(options: dict) -> str:
 def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
                x_points=None, y_points=None, use_wcs_for_points=False,
                point_marker='r.', point_size=2, title=None, figsize=None,
-               show_grid=False, output_file=None, dpi=300):
+               show_grid=False, output_file=None,  dpi=300, save_to_file=False):
     """Plot a 2D image with optional WCS projection, color scaling, and overlay points.
 
     Args:
@@ -1214,8 +1214,12 @@ def plot_image(image, wcs=None, quantiles=(0.01, 0.99), cmap='Blues_r',
 
     # Save or show the plot
     plt.tight_layout()
-    if output_file:
-        plt.savefig(output_file, dpi=dpi)
+    if save_to_file:
+        if output_file:
+            plt.savefig(output_file, dpi=dpi)
+        else:
+            log.error(f"output file name must be provided")
+
     else:
         plt.show()
 
@@ -1474,14 +1478,15 @@ def plot_photometric_match(
 
 
 def plot_photcal(
-    image,
-    phot_table,
-    wcs=None,
-    column_scale='mag_calib',
-    quantiles=(0.02, 0.98),
-    output_file=None,
-    show_plot=False,
-    dpi=300
+        image,
+        phot_table,
+        wcs=None,
+        column_scale='mag_calib',
+        quantiles=(0.02, 0.98),
+        output_file=None,
+        save_to_file=False,
+        show_plot=False,
+        dpi=300
 ):
     """Plot a calibrated photometric image with source ellipses colored by a photometric quantity.
 
@@ -1533,8 +1538,11 @@ def plot_photcal(
 
     plt.tight_layout()
 
-    if output_file:
-        plt.savefig(output_file, dpi=dpi)
+    if save_to_file:
+        if output_file:
+            plt.savefig(output_file, dpi=dpi)
+        else:
+            log.error(f"output file name must be provided")
     if show_plot:
         plt.show()
 
