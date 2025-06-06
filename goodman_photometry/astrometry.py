@@ -124,6 +124,7 @@ class Astrometry(object):
                  save_scamp_plots=False,
                  save_intermediary_files=False,
                  reduced_data_path=None,
+                 artifacts_path=None,
                  use_interactive_mpl_backend=True,
                  debug=False):
         """Initialize the Astrometry class.
@@ -148,6 +149,7 @@ class Astrometry(object):
         self.debug = debug
         self.save_intermediary_files = save_intermediary_files
         self.reduced_data_path = reduced_data_path
+        self.artifacts_path = artifacts_path
         self.save_scamp_plots = save_scamp_plots
         self.catalog_name = catalog_name
         self.magnitude_threshold = magnitude_threshold
@@ -156,6 +158,14 @@ class Astrometry(object):
         self.image = None
         self.header = None
         self.log = logging.getLogger()
+        self._data_quality = {
+            "fwhm": 0.0,
+            "fwhm_error": 0.0,
+            "ellipticity": 0.0,
+            "ellipticity_error": 0.0
+        }
+        self._plot_artifacts = {}
+        self._intermediary_files = {}
         if not use_interactive_mpl_backend:
             matplotlib.use('Agg')
 
@@ -173,6 +183,9 @@ class Astrometry(object):
 
         if self.reduced_data_path is None or not os.path.isdir(self.reduced_data_path):
             self.reduced_data_path = os.path.dirname(self.filename)
+
+        if self.artifacts_path is None or not os.path.isdir(self.artifacts_path):
+            self.artifacts_path = self.reduced_data_path
 
         self.start = datetime.datetime.now()
         self.log.info(f"Processing {self.filename}")
@@ -217,8 +230,58 @@ class Astrometry(object):
         output_file, elapsed_time = self.__save_to_fits_file()
         return {
             "output_file": output_file,
-            "elapsed_time": elapsed_time
+            "elapsed_time": elapsed_time,
+            "data_quality": self._data_quality,
+            "plots": self._plot_artifacts,
+            "intermediary_files": self._intermediary_files,
         }
+
+    @property
+    def dq(self):
+        """Get the data quality assessment results.
+
+        This property provides access to the data quality assessment results, which include:
+        - FWHM (Full Width at Half Maximum) of detected sources.
+        - FWHM error.
+        - Ellipticity of detected sources.
+        - Ellipticity error.
+
+        Returns:
+            dict: A dictionary containing the data quality metrics. The keys are:
+                - 'fwhm': The median FWHM of detected sources.
+                - 'fwhm_error': The uncertainty in the FWHM measurement.
+                - 'ellipticity': The median ellipticity of detected sources.
+                - 'ellipticity_error': The uncertainty in the ellipticity measurement.
+        """
+        return self._data_quality
+
+    @dq.setter
+    def dq(self, results):
+        """Set the data quality assessment results.
+
+        This setter updates the data quality assessment results. It ensures that only valid
+        float values are assigned to the respective keys in the `_data_quality` dictionary.
+
+        Args:
+            results (tuple): A tuple containing the following values in order:
+                - fwhm (float): The median FWHM of detected sources.
+                - fwhm_error (float): The uncertainty in the FWHM measurement.
+                - ellipticity (float): The median ellipticity of detected sources.
+                - ellipticity_error (float): The uncertainty in the ellipticity measurement.
+
+        Notes:
+            - Only float values are accepted for updating the data quality metrics.
+            - If any value in the tuple is not a float, it is ignored.
+        """
+        fwhm, fwhm_error, ellipticity, ellipticity_error = results
+        if isinstance(fwhm, float) or isinstance(fwhm, np.float32):
+            self._data_quality["fwhm"] = float(fwhm)
+        if isinstance(fwhm_error, float) or isinstance(fwhm_error, np.float32):
+            self._data_quality["fwhm_error"] = float(fwhm_error)
+        if isinstance(ellipticity, float) or isinstance(ellipticity, np.float32):
+            self._data_quality["ellipticity"] = float(ellipticity)
+        if isinstance(ellipticity_error, float) or isinstance(ellipticity_error, np.float32):
+            self._data_quality["ellipticity_error"] = float(ellipticity_error)
 
     def __create_bad_pixel_mask(self):
         """Create a bad pixel mask for the image.
@@ -234,28 +297,38 @@ class Astrometry(object):
         if self.save_intermediary_files:
             hdu = fits.PrimaryHDU(data=self.bad_pixel_mask.astype(int), header=self.header)
             hdu_list = fits.HDUList([hdu])
-            hdu_list.writeto(self.filename.replace(".fits", "_mask.fits"), overwrite=True)
+            mask_filename = get_new_file_name(current_file_name=self.filename,
+                                              new_path=self.reduced_data_path,
+                                              new_extension="_mask.fits")
+            self._intermediary_files["bad_pixel_mask"] = mask_filename
+            hdu_list.writeto(mask_filename, overwrite=True)
 
         plot_image_filename = get_new_file_name(current_file_name=self.filename,
-                                                new_path=self.reduced_data_path,
+                                                new_path=self.artifacts_path,
                                                 new_extension='png')
+        if self.save_plots:
+            self._plot_artifacts['image'] = plot_image_filename
         plot_image(
             image=self.image,
             title=self.filename.replace(".fits", ""),
             output_file=plot_image_filename,
             quantiles=(0.01, 0.99),
-            cmap=self.color_map)
+            cmap=self.color_map,
+            save_to_file=self.save_plots)
         self.log.info(f"Image - no WCS: {plot_image_filename}")
 
         plot_bad_pixel_mask_filename = get_new_file_name(current_file_name=self.filename,
-                                                         new_path=self.reduced_data_path,
+                                                         new_path=self.artifacts_path,
                                                          new_extension="_BPM.png")
+        if self.save_plots:
+            self._plot_artifacts["bad_pixel_mask"] = plot_bad_pixel_mask_filename
         plot_image(
             image=self.bad_pixel_mask,
             title="Bad pixel mask",
             output_file=plot_bad_pixel_mask_filename,
             quantiles=(0, 1),
-            cmap=self.color_map)
+            cmap=self.color_map,
+            save_to_file=self.save_plots)
         self.log.info(f"Image - bad pixel mask: {plot_bad_pixel_mask_filename}")
 
     def __create_basic_wcs_header(self):
@@ -271,7 +344,11 @@ class Astrometry(object):
         if self.save_intermediary_files:
             hdu = fits.PrimaryHDU(data=self.image, header=header_with_basic_wcs)
             hdu_list = fits.HDUList([hdu])
-            hdu_list.writeto(self.filename.replace(".fits", "_wcs_init.fits"), overwrite=True)
+            initial_wcs_filename = get_new_file_name(current_file_name=self.filename,
+                                                     new_path=self.reduced_data_path,
+                                                     new_extension="_wcs_init.fits")
+            self._intermediary_files["wcs_init"] = initial_wcs_filename
+            hdu_list.writeto(initial_wcs_filename, overwrite=True)
 
         self.ra_0, self.dec_0, self.fov_radius = get_frame_center(wcs=self.wcs_init, image_width=self.image.shape[1], image_height=self.image.shape[0])
         self.image_pixel_scale = get_pixel_scale(wcs=self.wcs_init)
@@ -307,8 +384,10 @@ class Astrometry(object):
             self.log.info(f"Flag={flag} - {np.sum(self.sources['flags'] == flag)}")
 
         plot_detections_filename = get_new_file_name(current_file_name=self.filename,
-                                                     new_path=self.reduced_data_path,
+                                                     new_path=self.artifacts_path,
                                                      new_extension="_detections.png")
+        if self.save_plots:
+            self._plot_artifacts["detections"] = plot_detections_filename
 
         plot_image(
             image=self.image,
@@ -317,7 +396,8 @@ class Astrometry(object):
             title='Detected objects',
             output_file=plot_detections_filename,
             quantiles=(0.01, 0.99),
-            cmap=self.color_map)
+            cmap=self.color_map,
+            save_to_file=self.save_plots)
 
         self.log.info(f"Image - SExtractor detections: {plot_detections_filename}")
 
@@ -331,8 +411,11 @@ class Astrometry(object):
         data_quality_sources = self.sources[self.sources['flags'] == 0]
 
         plot_detections_flag_0_filename = get_new_file_name(current_file_name=self.filename,
-                                                            new_path=self.reduced_data_path,
+                                                            new_path=self.artifacts_path,
                                                             new_extension="_detections_flag_0.png")
+
+        if self.save_plots:
+            self._plot_artifacts["detections_flag_0"] = plot_detections_flag_0_filename
 
         plot_image(
             image=self.image,
@@ -341,17 +424,18 @@ class Astrometry(object):
             title='Detected objects (FLAG=0)',
             output_file=plot_detections_flag_0_filename,
             quantiles=(0.01, 0.99),
-            cmap=self.color_map)
+            cmap=self.color_map,
+            save_to_file=self.save_plots)
 
         self.log.info(f"Image - Detected objects (FLAG=0): {plot_detections_flag_0_filename}")
 
-        fwhm, fwhm_error, ellipticity, ellipticity_error = evaluate_data_quality_results(data_quality_sources)
+        self.dq = evaluate_data_quality_results(data_quality_sources)
 
         self.log.info("Data quality results")
         self.log.info(f"Number of objects: {len(data_quality_sources)}/{len(self.sources)}")
-        self.log.info(f"Median FWHM: {fwhm:.2f}+/-{fwhm_error:.2f} pixels")
-        self.log.info(f"Median FWHM: {fwhm * self.image_pixel_scale * 3600.:.2f}+/-{fwhm_error * self.image_pixel_scale * 3600.:.2f} arcseconds")
-        self.log.info(f"Median Ellipticity: {ellipticity:.3f}+/-{ellipticity_error:.3f}")
+        self.log.info(f"Median FWHM: {self.dq['fwhm']:.2f}+/-{self.dq['fwhm_error']:.2f} pixels")
+        self.log.info(f"Median FWHM: {self.dq['fwhm'] * self.image_pixel_scale * 3600.:.2f}+/-{self.dq['fwhm_error'] * self.image_pixel_scale * 3600.:.2f} arcseconds")
+        self.log.info(f"Median Ellipticity: {self.dq['ellipticity']:.3f}+/-{self.dq['ellipticity_error']:.3f}")
 
     def __obtain_astrometric_solution_with_scamp(self):
         """Refine the WCS solution using SCAMP.
@@ -374,13 +458,16 @@ class Astrometry(object):
         self.log.info(f"Retrieved {len(vizier_catalog)} stars on {self.catalog_filter} filter (magnitude threshold={self.magnitude_threshold:.2f}).")
 
         if self.save_intermediary_files:
-            catalog_file_filename = self.filename.replace(".fits", f"_{self.catalog_name}_cat.vsv")
+            catalog_file_filename = get_new_file_name(current_file_name=self.filename,
+                                                      new_path=self.artifacts_path,
+                                                      new_extension=f"_{self.catalog_name}_cat.csv")
+            self._intermediary_files["catalog_filename"] = catalog_file_filename
             vizier_catalog.write(catalog_file_filename, overwrite=True)
             self.log.info(f"Vizier catalog saved as {catalog_file_filename}")
 
         if self.save_scamp_plots:
             scamp_plots = ['FGROUPS', 'DISTORTION', 'ASTR_REFERROR2D', 'ASTR_REFERROR1D']
-            scamp_names = ','.join([self.filename.replace("./", "").replace(".fits", "") + "_SCAMP_" + item for item in scamp_plots])
+            scamp_names = ','.join([get_new_file_name(current_file_name=self.filename, new_path=self.artifacts_path, new_extension=f"_SCAMP_{item}") for item in scamp_plots])
             scamp_extra = {
                 'CHECKPLOT_TYPE': ','.join(scamp_plots),
                 'CHECKPLOT_NAME': scamp_names,
@@ -411,7 +498,10 @@ class Astrometry(object):
             extra=scamp_extra)
 
         if self.save_intermediary_files:
-            scamp_results_filename = self.filename.replace(".fits", "_scamp_results.txt")
+            scamp_results_filename = get_new_file_name(current_file_name=self.filename,
+                                                       new_path=self.artifacts_path,
+                                                       new_extension="_scamp_results.txt")
+            self._intermediary_files["scamp_results_filename"] = scamp_results_filename
             with open(scamp_results_filename, "w") as scamp_results:
                 scamp_results.write(repr(self.header_with_wcs))
             self.log.info(f"SCAMP results saved as {scamp_results_filename}")
@@ -502,6 +592,8 @@ def goodman_astrometry():
         save_plots=args.save_plots,
         save_scamp_plots=args.save_scamp_plots,
         save_intermediary_files=args.save_intermediary_files,
+        reduced_data_path=args.reduced_data_path,
+        artifacts_path=args.artifacts_path,
         debug=args.debug)
 
     astrometry(filename=args.filename)
